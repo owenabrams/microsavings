@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -20,9 +20,7 @@ import {
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SaveIcon from '@mui/icons-material/Save';
-import axios from 'axios';
-
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+import api from '../services/api';
 
 function TabPanel({ children, value, index }) {
   return (
@@ -43,24 +41,24 @@ function GroupSettings() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['groupSettings', groupId],
     queryFn: async () => {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_URL}/api/groups/${groupId}/settings`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await api.get(`/api/groups/${groupId}/settings`);
       return response.data;
     },
-    onSuccess: (data) => {
+    retry: 1, // Only retry once on failure
+  });
+
+  // Set form data when query succeeds
+  useEffect(() => {
+    if (data?.data) {
       setFormData(data.data);
     }
-  });
+  }, [data]);
 
   const updateMutation = useMutation({
     mutationFn: async (updatedData) => {
-      const token = localStorage.getItem('token');
-      const response = await axios.put(
-        `${API_URL}/api/groups/${groupId}/settings`,
-        updatedData,
-        { headers: { Authorization: `Bearer ${token}` } }
+      const response = await api.put(
+        `/api/groups/${groupId}/settings`,
+        updatedData
       );
       return response.data;
     },
