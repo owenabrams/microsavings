@@ -184,6 +184,16 @@ function GroupSettings() {
               <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
+                  type="date"
+                  label="Formation Date"
+                  value={formData.basic_info?.formation_date ? formData.basic_info.formation_date.split('T')[0] : ''}
+                  onChange={(e) => handleChange('basic_info', 'formation_date', e.target.value)}
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
                   type="number"
                   label="Maximum Members"
                   value={formData.basic_info?.max_members || ''}
@@ -248,6 +258,28 @@ function GroupSettings() {
               <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
+                  type="number"
+                  label="Latitude"
+                  value={formData.location?.latitude || ''}
+                  onChange={(e) => handleChange('location', 'latitude', parseFloat(e.target.value))}
+                  inputProps={{ step: "any" }}
+                  helperText="GPS coordinate (e.g., -1.9403)"
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  type="number"
+                  label="Longitude"
+                  value={formData.location?.longitude || ''}
+                  onChange={(e) => handleChange('location', 'longitude', parseFloat(e.target.value))}
+                  inputProps={{ step: "any" }}
+                  helperText="GPS coordinate (e.g., 29.8739)"
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
                   select
                   label="Meeting Day"
                   value={formData.meeting_schedule?.meeting_day || ''}
@@ -261,6 +293,17 @@ function GroupSettings() {
                   <MenuItem value="SATURDAY">Saturday</MenuItem>
                   <MenuItem value="SUNDAY">Sunday</MenuItem>
                 </TextField>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  type="time"
+                  label="Meeting Time"
+                  value={formData.meeting_schedule?.meeting_time ? formData.meeting_schedule.meeting_time.substring(0, 5) : ''}
+                  onChange={(e) => handleChange('meeting_schedule', 'meeting_time', e.target.value)}
+                  InputLabelProps={{ shrink: true }}
+                  helperText="Time in 24-hour format"
+                />
               </Grid>
               <Grid item xs={12} md={6}>
                 <TextField
