@@ -20,7 +20,9 @@ import {
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SaveIcon from '@mui/icons-material/Save';
+import SettingsIcon from '@mui/icons-material/Settings';
 import api from '../services/api';
+import ManageSavingTypes from './ManageSavingTypes';
 
 function TabPanel({ children, value, index }) {
   return (
@@ -37,6 +39,7 @@ function GroupSettings() {
   const [activeTab, setActiveTab] = useState(0);
   const [formData, setFormData] = useState(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [manageSavingTypesOpen, setManageSavingTypesOpen] = useState(false);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['groupSettings', groupId],
@@ -372,7 +375,16 @@ function GroupSettings() {
 
           {/* Activities Tab */}
           <TabPanel value={activeTab} index={3}>
-            <Typography variant="h6" gutterBottom>Financial Activities</Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h6">Financial Activities</Typography>
+              <Button
+                variant="outlined"
+                startIcon={<SettingsIcon />}
+                onClick={() => setManageSavingTypesOpen(true)}
+              >
+                Manage Saving Types
+              </Button>
+            </Box>
             <Grid container spacing={2}>
               <Grid item xs={12} md={6}>
                 <FormControlLabel
@@ -577,6 +589,13 @@ function GroupSettings() {
           </TabPanel>
         </CardContent>
       </Card>
+
+      {/* Manage Saving Types Dialog */}
+      <ManageSavingTypes
+        open={manageSavingTypesOpen}
+        onClose={() => setManageSavingTypesOpen(false)}
+        groupId={groupId}
+      />
     </Box>
   );
 }
