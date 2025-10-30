@@ -11,7 +11,7 @@ import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 
-function SavingsProgressCard({ savings }) {
+function SavingsProgressCard({ savings, currency = 'UGX' }) {
   const { total, target, progress_percentage } = savings;
 
   const formatCurrency = (amount) => {
@@ -65,7 +65,7 @@ function SavingsProgressCard({ savings }) {
         </Box>
 
         <Typography variant="h3" color="primary" sx={{ fontWeight: 'bold', mb: 1 }}>
-          {formatCurrency(total)} RWF
+          {formatCurrency(total)} {currency}
         </Typography>
 
         <Box sx={{ mb: 2 }}>
@@ -99,7 +99,7 @@ function SavingsProgressCard({ savings }) {
               Current
             </Typography>
             <Typography variant="body1" fontWeight="medium">
-              {total.toLocaleString()} RWF
+              {total.toLocaleString()} {currency}
             </Typography>
           </Box>
           <Box sx={{ textAlign: 'right' }}>
@@ -107,7 +107,7 @@ function SavingsProgressCard({ savings }) {
               Target
             </Typography>
             <Typography variant="body1" fontWeight="medium">
-              {target > 0 ? `${target.toLocaleString()} RWF` : 'Not Set'}
+              {target > 0 ? `${target.toLocaleString()} ${currency}` : 'Not Set'}
             </Typography>
           </Box>
         </Box>

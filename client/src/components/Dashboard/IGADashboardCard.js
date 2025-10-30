@@ -15,7 +15,7 @@ import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import InfoIcon from '@mui/icons-material/Info';
 
-function IGADashboardCard({ iga, memberId }) {
+function IGADashboardCard({ iga, currency = 'UGX', memberId }) {
   const navigate = useNavigate();
   const {
     active_campaigns,
@@ -157,7 +157,7 @@ function IGADashboardCard({ iga, memberId }) {
                     {formatCurrency(total_invested)}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    RWF
+                    {currency}
                   </Typography>
                 </Box>
               </Grid>
@@ -178,7 +178,7 @@ function IGADashboardCard({ iga, memberId }) {
                     {formatCurrency(total_returns)}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    RWF
+                    {currency}
                   </Typography>
                 </Box>
               </Grid>
@@ -198,7 +198,7 @@ function IGADashboardCard({ iga, memberId }) {
                   Net Profit
                 </Typography>
                 <Typography variant="h6" fontWeight="bold" color="primary.main">
-                  {formatCurrency(total_returns - total_invested)} RWF
+                  {formatCurrency(total_returns - total_invested)} {currency}
                 </Typography>
               </Box>
             </Box>

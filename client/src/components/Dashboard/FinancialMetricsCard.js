@@ -14,7 +14,7 @@ import GavelIcon from '@mui/icons-material/Gavel';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import WarningIcon from '@mui/icons-material/Warning';
 
-function FinancialMetricsCard({ performance, fines }) {
+function FinancialMetricsCard({ performance, fines, currency = 'UGX' }) {
   const {
     attendance_rate,
     total_meetings,
@@ -162,7 +162,7 @@ function FinancialMetricsCard({ performance, fines }) {
                 Fines Status
               </Typography>
               <Typography variant="h6" fontWeight="bold">
-                {formatCurrency(total_fines)} RWF
+                {formatCurrency(total_fines)} {currency}
               </Typography>
             </Box>
             {!hasFines ? (

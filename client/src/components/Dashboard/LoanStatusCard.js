@@ -15,7 +15,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 
-function LoanStatusCard({ loans, memberId }) {
+function LoanStatusCard({ loans, currency = 'UGX', memberId }) {
   const navigate = useNavigate();
   const {
     is_eligible,
@@ -96,7 +96,7 @@ function LoanStatusCard({ loans, memberId }) {
 
           {is_eligible ? (
             <Alert severity="success" sx={{ mb: 2 }}>
-              You can borrow up to <strong>{formatCurrency(max_loan_amount)} RWF</strong>
+              You can borrow up to <strong>{formatCurrency(max_loan_amount)} {currency}</strong>
             </Alert>
           ) : (
             <Alert severity="info" sx={{ mb: 2 }}>
@@ -167,13 +167,13 @@ function LoanStatusCard({ loans, memberId }) {
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
             <Typography variant="body2">Total Borrowed:</Typography>
             <Typography variant="body2" fontWeight="medium">
-              {formatCurrency(total_loan_amount)} RWF
+              {formatCurrency(total_loan_amount)} {currency}
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
             <Typography variant="body2">Outstanding:</Typography>
             <Typography variant="body2" fontWeight="bold" color="error.main">
-              {formatCurrency(total_outstanding)} RWF
+              {formatCurrency(total_outstanding)} {currency}
             </Typography>
           </Box>
         </Box>

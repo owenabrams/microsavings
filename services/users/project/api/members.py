@@ -218,7 +218,10 @@ def get_member_dashboard(user_id, member_id):
                 'name': group.name,
                 'district': group.district,
                 'parish': group.parish,
-                'village': group.village
+                'village': group.village,
+                'currency': group.currency or 'UGX',
+                'share_value': float(group.share_value or 0),
+                'target_amount': float(group.target_amount or 0)
             } if group else None,
             'savings': {
                 'total': total_savings,

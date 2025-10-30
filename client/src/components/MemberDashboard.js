@@ -83,6 +83,9 @@ function MemberDashboard() {
 
   const { member, group, savings, loans, performance, fines, iga } = dashboardData;
 
+  // Extract currency from group settings (single source of truth)
+  const currency = group?.currency || 'UGX';
+
   return (
     <Box>
       {/* Breadcrumbs */}
@@ -130,27 +133,27 @@ function MemberDashboard() {
       {/* Dashboard Cards Grid */}
       <Grid container spacing={3}>
         <Grid item xs={12} md={6}>
-          <SavingsProgressCard savings={savings} />
+          <SavingsProgressCard savings={savings} currency={currency} />
         </Grid>
 
         <Grid item xs={12} md={6}>
-          <SavingsByFundCard savings={savings} />
+          <SavingsByFundCard savings={savings} currency={currency} />
         </Grid>
 
         <Grid item xs={12} md={6}>
-          <LoanStatusCard loans={loans} memberId={memberId} />
+          <LoanStatusCard loans={loans} currency={currency} memberId={memberId} />
         </Grid>
 
         <Grid item xs={12} md={6}>
-          <PerformanceComparisonCard performance={performance} />
+          <PerformanceComparisonCard performance={performance} currency={currency} />
         </Grid>
 
         <Grid item xs={12} md={6}>
-          <FinancialMetricsCard performance={performance} fines={fines} />
+          <FinancialMetricsCard performance={performance} fines={fines} currency={currency} />
         </Grid>
 
         <Grid item xs={12} md={6}>
-          <IGADashboardCard iga={iga} memberId={memberId} />
+          <IGADashboardCard iga={iga} currency={currency} memberId={memberId} />
         </Grid>
       </Grid>
 

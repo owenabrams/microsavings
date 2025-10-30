@@ -11,7 +11,7 @@ import SavingsIcon from '@mui/icons-material/Savings';
 import ChildCareIcon from '@mui/icons-material/ChildCare';
 import GroupsIcon from '@mui/icons-material/Groups';
 
-function SavingsByFundCard({ savings }) {
+function SavingsByFundCard({ savings, currency = 'UGX' }) {
   const { by_fund, total } = savings;
 
   const formatCurrency = (amount) => {
@@ -49,7 +49,7 @@ function SavingsByFundCard({ savings }) {
             Savings by Fund
           </Typography>
           <Typography variant="caption" color="text.secondary">
-            Total: {formatCurrency(total)} RWF
+            Total: {formatCurrency(total)} {currency}
           </Typography>
         </Box>
 
@@ -78,7 +78,7 @@ function SavingsByFundCard({ savings }) {
                           {fund.name}
                         </Typography>
                         <Typography variant="body1" fontWeight="bold" color={`${getFundColor(fund.name)}.main`}>
-                          {formatCurrency(fund.balance)} RWF
+                          {formatCurrency(fund.balance)} {currency}
                         </Typography>
                       </Box>
                       
@@ -95,7 +95,7 @@ function SavingsByFundCard({ savings }) {
 
                       <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                         <Typography variant="caption" color="text.secondary">
-                          Deposits: {formatCurrency(fund.total_deposits)} RWF
+                          Deposits: {formatCurrency(fund.total_deposits)} {currency}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
                           {percentage.toFixed(1)}% of total
@@ -104,7 +104,7 @@ function SavingsByFundCard({ savings }) {
 
                       {fund.total_withdrawals > 0 && (
                         <Typography variant="caption" color="text.secondary">
-                          Withdrawals: {formatCurrency(fund.total_withdrawals)} RWF
+                          Withdrawals: {formatCurrency(fund.total_withdrawals)} {currency}
                         </Typography>
                       )}
                     </Box>

@@ -11,7 +11,7 @@ import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 
-function PerformanceComparisonCard({ performance }) {
+function PerformanceComparisonCard({ performance, currency = 'UGX' }) {
   const {
     member_savings,
     group_avg_savings,
@@ -105,7 +105,7 @@ function PerformanceComparisonCard({ performance }) {
                 Your Savings
               </Typography>
               <Typography variant="caption" fontWeight="medium">
-                {formatCurrency(member_savings)} RWF
+                {formatCurrency(member_savings)} {currency}
               </Typography>
             </Box>
             <LinearProgress
@@ -122,7 +122,7 @@ function PerformanceComparisonCard({ performance }) {
                 Group Average
               </Typography>
               <Typography variant="caption" fontWeight="medium">
-                {formatCurrency(group_avg_savings)} RWF
+                {formatCurrency(group_avg_savings)} {currency}
               </Typography>
             </Box>
             <LinearProgress
@@ -204,7 +204,7 @@ function PerformanceComparisonCard({ performance }) {
             Total Contributions
           </Typography>
           <Typography variant="h5" fontWeight="bold" color="primary.main">
-            {formatCurrency(total_contributions)} RWF
+            {formatCurrency(total_contributions)} {currency}
           </Typography>
         </Box>
       </CardContent>
