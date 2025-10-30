@@ -34,6 +34,9 @@ def create_app(script_info=None):
     from project.api.group_settings import group_settings_blueprint
     from project.api.saving_types import saving_types_blueprint
     from project.api.member_profile import member_profile_blueprint
+    from project.api.meetings import meetings_blueprint
+    from project.api.documents import documents_blueprint
+    from project.api.documents_enhanced import documents_enhanced_blueprint
     from project.api.ping import ping_blueprint
 
     app.register_blueprint(auth_blueprint, url_prefix='/api/auth')
@@ -42,6 +45,9 @@ def create_app(script_info=None):
     app.register_blueprint(saving_types_blueprint, url_prefix='/api')
     app.register_blueprint(member_profile_blueprint, url_prefix='/api')
     app.register_blueprint(members_blueprint, url_prefix='/api/members')
+    app.register_blueprint(meetings_blueprint, url_prefix='/api')
+    app.register_blueprint(documents_blueprint, url_prefix='/api')
+    app.register_blueprint(documents_enhanced_blueprint, url_prefix='/api')
     app.register_blueprint(ping_blueprint)
     
     # Shell context for flask cli

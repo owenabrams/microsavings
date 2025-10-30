@@ -1,0 +1,62 @@
+"""
+Database migration script to add notes columns to transaction tables.
+
+This migration adds a 'notes' column to:
+- saving_transactions
+- member_fines  
+- training_records
+- voting_records
+
+Run this script with: python manage.py.add_notes_columns
+"""
+
+from project import create_app, db
+from sqlalchemy import text
+
+app = create_app()
+
+def add_notes_columns():
+    """Add notes columns to transaction tables."""
+    with app.app_context():
+        try:
+            print("Starting migration: Adding notes columns...")
+            
+            # Add notes to saving_transactions
+            print("  - Adding notes to saving_transactions...")
+            db.session.execute(text("""
+                ALTER TABLE saving_transactions 
+                ADD COLUMN IF NOT EXISTS notes TEXT;
+            """))
+            
+            # Add notes to member_fines
+            print("  - Adding notes to member_fines...")
+            db.session.execute(text("""
+                ALTER TABLE member_fines 
+                ADD COLUMN IF NOT EXISTS notes TEXT;
+            """))
+            
+            # Add notes to training_records
+            print("  - Adding notes to training_records...")
+            db.session.execute(text("""
+                ALTER TABLE training_records 
+                ADD COLUMN IF NOT EXISTS notes TEXT;
+            """))
+            
+            # Add notes to voting_records
+            print("  - Adding notes to voting_records...")
+            db.session.execute(text("""
+                ALTER TABLE voting_records 
+                ADD COLUMN IF NOT EXISTS notes TEXT;
+            """))
+            
+            db.session.commit()
+            print("✅ Migration completed successfully!")
+            
+        except Exception as e:
+            db.session.rollback()
+            print(f"❌ Migration failed: {str(e)}")
+            raise
+
+if __name__ == '__main__':
+    add_notes_columns()
+

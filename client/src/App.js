@@ -15,6 +15,10 @@ import GroupDetail from './components/GroupDetail';
 import GroupSettings from './components/GroupSettings';
 import MemberDashboard from './components/MemberDashboard';
 import MemberProfile from './components/MemberProfile';
+import MeetingsList from './components/MeetingsList';
+import MeetingDetailEnhanced from './components/MeetingDetailEnhanced';
+import MeetingWorkspace from './components/MeetingWorkspace';
+import GroupDashboard from './components/GroupDashboard';
 
 const theme = createTheme({
   palette: {
@@ -143,6 +147,46 @@ function App() {
               element={
                 isAuthenticated ? (
                   <MemberDashboard />
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
+              path="/groups/:groupId/meetings"
+              element={
+                isAuthenticated ? (
+                  <MeetingsList />
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
+              path="/groups/:groupId/meetings/:meetingId"
+              element={
+                isAuthenticated ? (
+                  <MeetingDetailEnhanced />
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
+              path="/meetings/:meetingId/workspace"
+              element={
+                isAuthenticated ? (
+                  <MeetingWorkspace />
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
+              path="/groups/:groupId/dashboard"
+              element={
+                isAuthenticated ? (
+                  <GroupDashboard />
                 ) : (
                   <Navigate to="/login" replace />
                 )

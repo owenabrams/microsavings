@@ -2,7 +2,11 @@
 from flask import Blueprint, request, jsonify
 from sqlalchemy import exc, func
 from project import db
-from project.api.models import SavingsGroup, GroupMember, User
+from project.api.models import (
+    SavingsGroup, GroupMember, User, MemberSaving, MemberFine,
+    GroupLoan, Meeting, MeetingAttendance, TrainingRecord,
+    TrainingAttendance, VotingRecord, MemberVote, SavingType
+)
 from functools import wraps
 
 
@@ -339,3 +343,189 @@ def add_group_member(user_id, group_id):
         response_object['message'] = str(e)
         return jsonify(response_object), 500
 
+
+@savings_groups_blueprint.route('/<int:group_id>/dashboard', methods=['GET'])
+@authenticate
+def get_group_dashboard(group_id):
+    """Get aggregated dashboard data for a group."""
+    try:
+        # Verify group exists
+        group = SavingsGroup.query.filter_by(id=group_id).first()
+        if not group:
+            return jsonify({'status': 'error', 'message': 'Group not found'}), 404
+
+        # Get all active saving types (saving types are global, not per-group)
+        saving_types = SavingType.query.filter_by(is_active=True).all()
+
+        # Calculate total savings by fund type using aggregated data from member_savings
+        savings_by_fund = {}
+        total_savings = 0
+
+        for saving_type in saving_types:
+            # Sum up all member savings for this saving type in this group
+            member_savings_records = db.session.query(
+                func.sum(MemberSaving.total_deposits).label('deposits'),
+                func.sum(MemberSaving.total_withdrawals).label('withdrawals'),
+                func.sum(MemberSaving.current_balance).label('balance')
+            ).join(
+                GroupMember, MemberSaving.member_id == GroupMember.id
+            ).filter(
+                GroupMember.group_id == group_id,
+                MemberSaving.saving_type_id == saving_type.id,
+                MemberSaving.is_active == True
+            ).first()
+
+            deposits = float(member_savings_records.deposits or 0)
+            withdrawals = float(member_savings_records.withdrawals or 0)
+            net_savings = float(member_savings_records.balance or 0)
+
+            savings_by_fund[saving_type.name] = {
+                'total': net_savings,
+                'deposits': deposits,
+                'withdrawals': withdrawals
+            }
+            total_savings += net_savings
+
+        # Calculate total fines (join through GroupMember to filter by group)
+        total_fines_issued = db.session.query(func.sum(MemberFine.amount)).join(
+            GroupMember, MemberFine.member_id == GroupMember.id
+        ).filter(
+            GroupMember.group_id == group_id
+        ).scalar() or 0
+
+        total_fines_paid = db.session.query(func.sum(MemberFine.paid_amount)).join(
+            GroupMember, MemberFine.member_id == GroupMember.id
+        ).filter(
+            GroupMember.group_id == group_id,
+            MemberFine.is_paid == True
+        ).scalar() or 0
+
+        # Calculate loan statistics
+        total_loans_disbursed = db.session.query(func.sum(GroupLoan.principal)).filter(
+            GroupLoan.group_id == group_id,
+            GroupLoan.status.in_(['ACTIVE', 'DISBURSED', 'COMPLETED'])
+        ).scalar() or 0
+
+        total_loans_outstanding = db.session.query(func.sum(GroupLoan.outstanding_balance)).filter(
+            GroupLoan.group_id == group_id,
+            GroupLoan.status == 'ACTIVE'
+        ).scalar() or 0
+
+        active_loans_count = GroupLoan.query.filter_by(
+            group_id=group_id,
+            status='ACTIVE'
+        ).count()
+
+        # Calculate meeting statistics
+        total_meetings = Meeting.query.filter_by(group_id=group_id).count()
+        completed_meetings = Meeting.query.filter_by(
+            group_id=group_id,
+            status='COMPLETED'
+        ).count()
+
+        # Calculate average attendance rate across all completed meetings
+        attendance_rates = []
+        completed_meetings_list = Meeting.query.filter_by(
+            group_id=group_id,
+            status='COMPLETED'
+        ).all()
+
+        for meeting in completed_meetings_list:
+            total_members = GroupMember.query.filter_by(group_id=group_id).count()
+            present_count = MeetingAttendance.query.filter_by(
+                meeting_id=meeting.id,
+                is_present=True
+            ).count()
+            if total_members > 0:
+                attendance_rates.append((present_count / total_members) * 100)
+
+        avg_attendance_rate = sum(attendance_rates) / len(attendance_rates) if attendance_rates else 0
+
+        # Calculate training statistics
+        total_trainings = TrainingRecord.query.join(Meeting).filter(
+            Meeting.group_id == group_id
+        ).count()
+
+        total_training_attendances = db.session.query(func.count(TrainingAttendance.id)).join(
+            TrainingRecord
+        ).join(Meeting).filter(
+            Meeting.group_id == group_id,
+            TrainingAttendance.attended == True
+        ).scalar() or 0
+
+        # Calculate training participation rate
+        total_members = GroupMember.query.filter_by(group_id=group_id).count()
+        expected_training_attendances = total_trainings * total_members
+        training_participation_rate = (total_training_attendances / expected_training_attendances * 100) if expected_training_attendances > 0 else 0
+
+        # Calculate voting statistics
+        total_voting_sessions = VotingRecord.query.join(Meeting).filter(
+            Meeting.group_id == group_id
+        ).count()
+
+        total_votes_cast = db.session.query(func.count(MemberVote.id)).join(
+            VotingRecord
+        ).join(Meeting).filter(
+            Meeting.group_id == group_id,
+            MemberVote.vote_cast.in_(['YES', 'NO', 'ABSTAIN'])
+        ).scalar() or 0
+
+        # Calculate voting participation rate
+        expected_votes = total_voting_sessions * total_members
+        voting_participation_rate = (total_votes_cast / expected_votes * 100) if expected_votes > 0 else 0
+
+        # Get group targets
+        group_target = float(group.target_amount or 0)
+
+        # Calculate sum of all member targets from member_savings (join through group_members)
+        total_member_targets = db.session.query(func.sum(MemberSaving.target_amount)).join(
+            GroupMember, MemberSaving.member_id == GroupMember.id
+        ).filter(
+            GroupMember.group_id == group_id,
+            MemberSaving.is_active == True
+        ).scalar() or 0
+
+        # Calculate progress towards target
+        target_progress = (total_savings / group_target * 100) if group_target > 0 else 0
+
+        return jsonify({
+            'status': 'success',
+            'data': {
+                'group_info': {
+                    'id': group.id,
+                    'name': group.name,
+                    'currency': group.currency,
+                    'total_members': total_members,
+                    'formation_date': group.formation_date.isoformat() if group.formation_date else None
+                },
+                'financial_summary': {
+                    'total_savings': total_savings,
+                    'savings_by_fund': savings_by_fund,
+                    'total_fines_issued': float(total_fines_issued),
+                    'total_fines_paid': float(total_fines_paid),
+                    'total_loans_disbursed': float(total_loans_disbursed),
+                    'total_loans_outstanding': float(total_loans_outstanding),
+                    'active_loans_count': active_loans_count
+                },
+                'targets': {
+                    'group_target': group_target,
+                    'total_member_targets': float(total_member_targets),
+                    'current_savings': total_savings,
+                    'progress_percentage': target_progress
+                },
+                'meeting_statistics': {
+                    'total_meetings': total_meetings,
+                    'completed_meetings': completed_meetings,
+                    'average_attendance_rate': avg_attendance_rate
+                },
+                'participation_statistics': {
+                    'total_trainings': total_trainings,
+                    'training_participation_rate': training_participation_rate,
+                    'total_voting_sessions': total_voting_sessions,
+                    'voting_participation_rate': voting_participation_rate
+                }
+            }
+        }), 200
+
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500

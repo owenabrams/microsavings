@@ -42,12 +42,58 @@ After a comprehensive schema analysis comparing backend database models, API end
 - **Fix:** Updated all 5 edit endpoints to accept and return `notes` field
 - **Impact:** User notes would be silently ignored
 
-### **2. Database Migration - Notes Columns**
+### **2. Database Schema Alignment**
 
-Added `notes` TEXT column to transaction tables:
-- ✅ `saving_transactions` - Added notes column
-- ✅ `member_fines` - Added notes column
-- ✅ `meeting_activities` - Already had notes column (used for training & voting)
+#### **ORM Model Updates**
+Updated `services/users/project/api/models.py` to match actual database schema:
+
+**SavingTransaction Model (Line 223):**
+- ✅ Added `notes` TEXT column
+
+**MemberFine Model (Line 319):**
+- ✅ Added `notes` TEXT column
+
+**MemberActivityParticipation Model (Lines 916-944):**
+- ✅ Updated to match database schema with all fields:
+  - `is_present`, `participation_type`, `amount_contributed`
+  - `fund_type`, `payment_method`, `mobile_money_reference`, `mobile_money_phone`
+  - `verification_status`, `verified_by`, `verified_date`
+  - `participation_score`, `contributed_to_discussions`, `voted_on_decisions`
+  - `notes`, `excuse_reason`
+
+#### **Database Migration - group_members Table**
+Created and executed `services/users/align_schema.py` to align database with ORM:
+- ✅ Made `user_id` nullable (was NOT NULL)
+- ✅ Made `gender` nullable (was NOT NULL)
+- ✅ Added `target_amount` NUMERIC(12,2) column
+- ✅ Changed `share_balance` precision from (12,2) to (15,2)
+- ✅ Changed `total_contributions` precision from (12,2) to (15,2)
+
+### **3. Test Data Seeding**
+
+Created `services/users/seed_test_data.py` to populate database with realistic test data:
+
+**What's Seeded:**
+- ✅ 3 Savings Groups:
+  - Kigali Women Savings Group (RWF) - 8 members
+  - Kampala Business Collective (UGX) - 6 members
+  - Nairobi Community Fund (KES) - 7 members
+- ✅ 21 Total Members with unique names and roles (Chairman, Treasurer, Secretary, Members)
+- ✅ 9 Meetings (3 per group: 2 completed, 1 in progress)
+- ✅ Meeting Attendance records
+- ✅ Fines (4 total across groups)
+- ✅ Training Activities (3 total)
+- ✅ Voting Activities (3 total)
+- ✅ Member Activity Participation records
+
+**How to Run:**
+```bash
+docker exec testdriven_backend python seed_test_data.py
+```
+
+**Login Credentials:**
+- Email: `admin@savingsgroup.com`
+- Password: `admin123`
 
 **Migration Commands:**
 ```sql

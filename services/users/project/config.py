@@ -10,6 +10,8 @@ class BaseConfig:
     BCRYPT_LOG_ROUNDS = 13
     TOKEN_EXPIRATION_DAYS = 30
     TOKEN_EXPIRATION_SECONDS = 0
+    UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER', '/app/uploads')
+    MAX_CONTENT_LENGTH = 50 * 1024 * 1024  # 50MB max file size
 
 
 class DevelopmentConfig(BaseConfig):

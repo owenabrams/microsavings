@@ -382,6 +382,16 @@ function MemberSettings({ open, onClose, groupId, memberId }) {
                   />
                 </Grid>
                 <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Savings Target"
+                    type="number"
+                    value={formData.target_amount || ''}
+                    onChange={(e) => handleChange('target_amount', parseFloat(e.target.value) || 0)}
+                    helperText="Individual savings target for this member"
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
                   <FormControlLabel
                     control={
                       <Switch

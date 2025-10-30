@@ -143,6 +143,7 @@ class GroupMember(db.Model):
     role = Column(String(50), default='MEMBER')
     share_balance = Column(Numeric(15, 2), default=0)
     total_contributions = Column(Numeric(15, 2), default=0)
+    target_amount = Column(Numeric(12, 2), default=0.00)
     attendance_percentage = Column(Numeric(5, 2), default=0)
     is_eligible_for_loans = Column(Boolean, default=False)
     created_date = Column(DateTime, default=datetime.datetime.utcnow)
@@ -196,6 +197,36 @@ class MemberSaving(db.Model):
     # Relationships
     member = relationship('GroupMember', back_populates='savings')
     saving_type = relationship('SavingType')
+    transactions = relationship('SavingTransaction', back_populates='member_saving', cascade='all, delete-orphan')
+
+
+class SavingTransaction(db.Model):
+    """Saving transaction model."""
+
+    __tablename__ = 'saving_transactions'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    member_saving_id = Column(Integer, ForeignKey('member_savings.id', ondelete='CASCADE'), nullable=False)
+    amount = Column(Numeric(12, 2), nullable=False)
+    transaction_type = Column(String(50), nullable=False)  # 'DEPOSIT' or 'WITHDRAWAL'
+    transaction_date = Column(Date, default=datetime.date.today)
+    description = Column(Text)
+    reference_number = Column(String(100))
+    is_mobile_money = Column(Boolean, default=False)
+    mobile_money_reference = Column(String(100))
+    mobile_money_phone = Column(String(20))
+    verification_status = Column(String(50), default='PENDING')
+    verified_by = Column(Integer, ForeignKey('users.id'))
+    verified_date = Column(DateTime)
+    meeting_id = Column(Integer, ForeignKey('meetings.id'))
+    activity_id = Column(Integer)
+    notes = Column(Text)
+    created_date = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
+
+    # Relationships
+    member_saving = relationship('MemberSaving', back_populates='transactions')
+    meeting = relationship('Meeting')
+    verifier = relationship('User', foreign_keys=[verified_by])
 
 
 class Meeting(db.Model):
@@ -286,6 +317,7 @@ class MemberFine(db.Model):
     verified_date = Column(DateTime)
     meeting_id = Column(Integer)
     imposed_by = Column(Integer, ForeignKey('users.id'))
+    notes = Column(Text)
     created_date = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
 
     # Relationships
@@ -300,15 +332,23 @@ class GroupLoan(db.Model):
     id = Column(Integer, primary_key=True, autoincrement=True)
     group_id = Column(Integer, ForeignKey('savings_groups.id'), nullable=False)
     member_id = Column(Integer, ForeignKey('group_members.id'), nullable=False)
-    loan_type = Column(String(100))
-    amount = Column(Numeric(15, 2), nullable=False)
-    interest_rate = Column(Numeric(5, 2), default=0)
-    repayment_frequency = Column(String(50), default='MONTHLY')
-    repayment_status = Column(String(50), default='PENDING')
-    total_repaid = Column(Numeric(15, 2), default=0)
-    outstanding_balance = Column(Numeric(15, 2), default=0)
+    principal = Column(Numeric(15, 2), nullable=False)
+    interest_rate = Column(Numeric(5, 4), nullable=False)
+    term_months = Column(Integer, nullable=False)
+    monthly_payment = Column(Numeric(12, 2), nullable=False)
+    status = Column(String(50), default='PENDING')
+    application_date = Column(Date, default=datetime.date.today)
+    approval_date = Column(Date)
+    disbursement_date = Column(Date)
+    maturity_date = Column(Date)
+    total_amount_due = Column(Numeric(15, 2), nullable=False)
+    amount_paid = Column(Numeric(15, 2), default=0.00)
+    outstanding_balance = Column(Numeric(15, 2), nullable=False)
+    payments_made = Column(Integer, default=0)
+    payments_missed = Column(Integer, default=0)
+    days_overdue = Column(Integer, default=0)
     approved_by = Column(Integer, ForeignKey('users.id'))
-    approved_date = Column(Date)
+    disbursed_by = Column(Integer, ForeignKey('users.id'))
     created_date = Column(DateTime, default=datetime.datetime.utcnow)
     updated_date = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
@@ -577,8 +617,40 @@ class GroupDocument(db.Model):
     created_date = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
     updated_date = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow, nullable=False)
 
+    # Compression and storage fields
+    is_compressed = Column(Boolean, default=False)
+    compressed_size = Column(Integer)
+    compression_ratio = Column(Numeric(5, 2))
+    file_hash = Column(String(64))
+
+    # Preview and thumbnail fields
+    thumbnail_path = Column(String(500))
+    preview_path = Column(String(500))
+    has_preview = Column(Boolean, default=False)
+
+    # Versioning fields
+    parent_document_id = Column(Integer, ForeignKey('group_documents.id'))
+    replaced_by_id = Column(Integer, ForeignKey('group_documents.id'))
+    version_number = Column(Integer, default=1)
+
+    # Metadata fields
+    file_category = Column(String(50))
+    original_filename = Column(String(255))
+    download_count = Column(Integer, default=0)
+    last_accessed = Column(DateTime)
+
+    # Soft delete
+    is_deleted = Column(Boolean, default=False)
+    deleted_date = Column(DateTime)
+    deleted_by = Column(Integer, ForeignKey('users.id'))
+
     # Relationships
     group = relationship('SavingsGroup', back_populates='documents')
+    uploader = relationship('User', foreign_keys=[uploaded_by])
+    approver = relationship('User', foreign_keys=[approved_by])
+    deleter = relationship('User', foreign_keys=[deleted_by])
+    parent_document = relationship('GroupDocument', remote_side=[id], foreign_keys=[parent_document_id])
+    replaced_by = relationship('GroupDocument', remote_side=[id], foreign_keys=[replaced_by_id])
 
 
 class DocumentTemplate(db.Model):
@@ -595,4 +667,279 @@ class DocumentTemplate(db.Model):
     created_by = Column(Integer, ForeignKey('users.id'))
     created_date = Column(DateTime, default=datetime.datetime.utcnow)
     updated_date = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+
+class TrainingRecord(db.Model):
+    """Training session record model."""
+
+    __tablename__ = 'training_records'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    meeting_id = Column(Integer, ForeignKey('meetings.id'), nullable=False)
+    training_topic = Column(String(255), nullable=False)
+    training_description = Column(Text)
+    trainer_name = Column(String(255))
+    trainer_type = Column(String(50))  # INTERNAL, EXTERNAL, MEMBER
+    duration_minutes = Column(Integer)
+    materials_provided = Column(Text)
+    total_attendees = Column(Integer, default=0)
+    created_date = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
+    updated_date = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow, nullable=False)
+
+    # Relationships
+    meeting = relationship('Meeting')
+    attendance = relationship('TrainingAttendance', back_populates='training', lazy='dynamic')
+
+
+class TrainingAttendance(db.Model):
+    """Training attendance model."""
+
+    __tablename__ = 'training_attendance'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    training_id = Column(Integer, ForeignKey('training_records.id'), nullable=False)
+    member_id = Column(Integer, ForeignKey('group_members.id'), nullable=False)
+    attended = Column(Boolean, default=False)
+    notes = Column(Text)
+    created_date = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
+
+    # Relationships
+    training = relationship('TrainingRecord', back_populates='attendance')
+    member = relationship('GroupMember')
+
+
+class VotingRecord(db.Model):
+    """Voting session record model."""
+
+    __tablename__ = 'voting_records'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    meeting_id = Column(Integer, ForeignKey('meetings.id'), nullable=False)
+    vote_topic = Column(String(255), nullable=False)
+    vote_description = Column(Text)
+    vote_type = Column(String(50), default='SIMPLE_MAJORITY')  # SIMPLE_MAJORITY, TWO_THIRDS, UNANIMOUS
+    result = Column(String(50))  # PASSED, FAILED, DEFERRED
+    yes_count = Column(Integer, default=0)
+    no_count = Column(Integer, default=0)
+    abstain_count = Column(Integer, default=0)
+    absent_count = Column(Integer, default=0)
+    proposed_by = Column(Integer, ForeignKey('group_members.id'))
+    created_date = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
+    updated_date = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow, nullable=False)
+
+    # Relationships
+    meeting = relationship('Meeting')
+    proposer = relationship('GroupMember', foreign_keys=[proposed_by])
+    votes = relationship('MemberVote', back_populates='voting_record', lazy='dynamic')
+
+
+class MemberVote(db.Model):
+    """Member vote model."""
+
+    __tablename__ = 'member_votes'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    voting_record_id = Column(Integer, ForeignKey('voting_records.id'), nullable=False)
+    member_id = Column(Integer, ForeignKey('group_members.id'), nullable=False)
+    vote_cast = Column(String(20), nullable=False)  # YES, NO, ABSTAIN, ABSENT
+    notes = Column(Text)
+    created_date = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
+
+    # Relationships
+    voting_record = relationship('VotingRecord', back_populates='votes')
+    member = relationship('GroupMember')
+
+
+class LoanRepayment(db.Model):
+    """Loan repayment transaction model."""
+
+    __tablename__ = 'loan_repayments'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    loan_id = Column(Integer, ForeignKey('group_loans.id'), nullable=False)
+    meeting_id = Column(Integer, ForeignKey('meetings.id'))
+    member_id = Column(Integer, ForeignKey('group_members.id'), nullable=False)
+    repayment_amount = Column(Numeric(12, 2), nullable=False)
+    principal_amount = Column(Numeric(12, 2), nullable=False)
+    interest_amount = Column(Numeric(12, 2), nullable=False)
+    outstanding_balance = Column(Numeric(12, 2), nullable=False)
+    repayment_date = Column(Date, nullable=False)
+    payment_method = Column(String(50), default='CASH')  # CASH, MOBILE_MONEY
+    mobile_money_reference = Column(String(100))
+    mobile_money_phone = Column(String(20))
+    recorded_by = Column(Integer, ForeignKey('users.id'))
+    notes = Column(Text)
+    created_date = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
+    updated_date = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow, nullable=False)
+
+    # Relationships
+    loan = relationship('GroupLoan')
+    meeting = relationship('Meeting')
+    member = relationship('GroupMember')
+
+
+class MeetingSummary(db.Model):
+    """Meeting summary model."""
+
+    __tablename__ = 'meeting_summaries'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    meeting_id = Column(Integer, ForeignKey('meetings.id'), nullable=False, unique=True)
+
+    # Attendance summary
+    total_members = Column(Integer, default=0)
+    members_present = Column(Integer, default=0)
+    members_absent = Column(Integer, default=0)
+    attendance_rate = Column(Numeric(5, 2), default=0.00)
+
+    # Savings summary
+    total_deposits = Column(Numeric(12, 2), default=0.00)
+    total_withdrawals = Column(Numeric(12, 2), default=0.00)
+    net_savings = Column(Numeric(12, 2), default=0.00)
+
+    # Fines summary
+    total_fines_issued = Column(Numeric(12, 2), default=0.00)
+    total_fines_paid = Column(Numeric(12, 2), default=0.00)
+    outstanding_fines = Column(Numeric(12, 2), default=0.00)
+
+    # Loan summary
+    total_loans_disbursed = Column(Numeric(12, 2), default=0.00)
+    loans_disbursed_count = Column(Integer, default=0)
+    total_loan_repayments = Column(Numeric(12, 2), default=0.00)
+    loan_repayments_count = Column(Integer, default=0)
+
+    # Training summary
+    trainings_held = Column(Integer, default=0)
+    training_attendance_count = Column(Integer, default=0)
+    training_participation_rate = Column(Numeric(5, 2), default=0.00)
+
+    # Voting summary
+    voting_sessions_held = Column(Integer, default=0)
+    votes_cast_count = Column(Integer, default=0)
+    voting_participation_rate = Column(Numeric(5, 2), default=0.00)
+
+    # Financial summary
+    net_cash_flow = Column(Numeric(12, 2), default=0.00)
+
+    created_date = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
+    updated_date = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow, nullable=False)
+
+    # Relationships
+    meeting = relationship('Meeting')
+
+
+class MeetingActivity(db.Model):
+    """Meeting activity model for tracking activities during meetings."""
+
+    __tablename__ = 'meeting_activities'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    meeting_id = Column(Integer, ForeignKey('meetings.id', ondelete='CASCADE'), nullable=False)
+    activity_type = Column(String(50), nullable=False)  # SAVINGS, FINE, LOAN_REPAYMENT, TRAINING, VOTING, etc.
+    activity_name = Column(String(255), nullable=False)
+    description = Column(Text)
+    status = Column(String(50), default='PENDING')  # PENDING, IN_PROGRESS, COMPLETED, CANCELLED
+    start_time = Column(Time)
+    end_time = Column(Time)
+    duration_minutes = Column(Integer)
+    total_amount = Column(Numeric(12, 2), default=0.00)
+    participants_count = Column(Integer, default=0)
+    conducted_by = Column(Integer, ForeignKey('group_members.id'))
+    notes = Column(Text)
+    created_date = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
+    updated_date = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow, nullable=False)
+
+    # Relationships
+    meeting = relationship('Meeting')
+    conductor = relationship('GroupMember', foreign_keys=[conducted_by])
+    documents = relationship('ActivityDocument', back_populates='activity', lazy='dynamic', cascade='all, delete-orphan')
+    participations = relationship('MemberActivityParticipation', back_populates='activity', lazy='dynamic', cascade='all, delete-orphan')
+
+
+class ActivityDocument(db.Model):
+    """Activity document model for file attachments to meeting activities."""
+
+    __tablename__ = 'activity_documents'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    activity_id = Column(Integer, ForeignKey('meeting_activities.id', ondelete='CASCADE'), nullable=False)
+    document_name = Column(String(255), nullable=False)
+    document_type = Column(String(50), nullable=False)  # RECEIPT, INVOICE, PHOTO, REPORT, OTHER
+    file_path = Column(String(500), nullable=False)
+    file_size = Column(Integer, nullable=False)
+    mime_type = Column(String(100))
+    description = Column(Text)
+    is_proof_document = Column(Boolean, default=False)
+    document_category = Column(String(50))  # FINANCIAL, TRAINING, VOTING, GENERAL
+    uploaded_by = Column(Integer, ForeignKey('users.id'))
+    upload_date = Column(DateTime, default=datetime.datetime.utcnow)
+    is_public = Column(Boolean, default=False)
+    access_level = Column(String(50), default='GROUP')  # GROUP, ADMIN, PUBLIC
+    created_date = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
+
+    # Compression and storage fields
+    is_compressed = Column(Boolean, default=False)
+    compressed_size = Column(Integer)
+    compression_ratio = Column(Numeric(5, 2))  # Percentage
+    file_hash = Column(String(64))  # SHA256 hash for duplicate detection
+
+    # Preview and thumbnail fields
+    thumbnail_path = Column(String(500))
+    preview_path = Column(String(500))
+    has_preview = Column(Boolean, default=False)
+
+    # Versioning fields
+    version = Column(Integer, default=1)
+    parent_document_id = Column(Integer, ForeignKey('activity_documents.id'))
+    is_current_version = Column(Boolean, default=True)
+    replaced_by_id = Column(Integer, ForeignKey('activity_documents.id'))
+
+    # Metadata fields
+    file_category = Column(String(50))  # documents, images, videos, archives, audio
+    original_filename = Column(String(255))
+    download_count = Column(Integer, default=0)
+    last_accessed = Column(DateTime)
+
+    # Soft delete
+    is_deleted = Column(Boolean, default=False)
+    deleted_date = Column(DateTime)
+    deleted_by = Column(Integer, ForeignKey('users.id'))
+
+    # Relationships
+    activity = relationship('MeetingActivity', back_populates='documents')
+    uploader = relationship('User', foreign_keys=[uploaded_by])
+    deleter = relationship('User', foreign_keys=[deleted_by])
+    parent_document = relationship('ActivityDocument', remote_side=[id], foreign_keys=[parent_document_id])
+    replaced_by = relationship('ActivityDocument', remote_side=[id], foreign_keys=[replaced_by_id])
+
+
+class MemberActivityParticipation(db.Model):
+    """Member activity participation model for tracking member participation in activities."""
+
+    __tablename__ = 'member_activity_participation'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    activity_id = Column(Integer, ForeignKey('meeting_activities.id', ondelete='CASCADE'), nullable=False)
+    member_id = Column(Integer, ForeignKey('group_members.id'), nullable=False)
+    is_present = Column(Boolean, default=False)
+    participation_type = Column(String(50))
+    amount_contributed = Column(Numeric(12, 2), default=0.00)
+    fund_type = Column(String(50))
+    payment_method = Column(String(50), default='CASH')
+    mobile_money_reference = Column(String(100))
+    mobile_money_phone = Column(String(20))
+    verification_status = Column(String(50), default='PENDING')
+    verified_by = Column(Integer, ForeignKey('users.id'))
+    verified_date = Column(DateTime)
+    participation_score = Column(Numeric(3, 1), default=0.0)
+    contributed_to_discussions = Column(Boolean, default=False)
+    voted_on_decisions = Column(Boolean, default=False)
+    notes = Column(Text)
+    excuse_reason = Column(Text)
+    created_date = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
+
+    # Relationships
+    activity = relationship('MeetingActivity', back_populates='participations')
+    member = relationship('GroupMember')
+    verifier = relationship('User', foreign_keys=[verified_by])
 

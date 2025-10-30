@@ -355,6 +355,16 @@ function GroupSettings() {
                 <TextField
                   fullWidth
                   type="number"
+                  label="Group Savings Target"
+                  value={formData.financial_settings?.target_amount || ''}
+                  onChange={(e) => handleChange('financial_settings', 'target_amount', parseFloat(e.target.value))}
+                  helperText="Overall group savings target amount"
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  type="number"
                   label="Standard Fine Amount"
                   value={formData.financial_settings?.standard_fine_amount || ''}
                   onChange={(e) => handleChange('financial_settings', 'standard_fine_amount', parseFloat(e.target.value))}

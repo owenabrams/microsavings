@@ -33,6 +33,7 @@ import PersonIcon from '@mui/icons-material/Person';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
+import EventIcon from '@mui/icons-material/Event';
 import { groupsAPI } from '../services/api';
 import AddMemberDialog from './AddMemberDialog';
 
@@ -126,14 +127,32 @@ function GroupDetail() {
         <Button component={Link} to="/groups" startIcon={<ArrowBackIcon />}>
           Back to Groups
         </Button>
-        <Button
-          component={Link}
-          to={`/groups/${groupId}/settings`}
-          variant="outlined"
-          startIcon={<SettingsIcon />}
-        >
-          Group Settings
-        </Button>
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <Button
+            component={Link}
+            to={`/groups/${groupId}/dashboard`}
+            variant="contained"
+            startIcon={<DashboardIcon />}
+          >
+            Group Dashboard
+          </Button>
+          <Button
+            component={Link}
+            to={`/groups/${groupId}/meetings`}
+            variant="outlined"
+            startIcon={<EventIcon />}
+          >
+            Meetings
+          </Button>
+          <Button
+            component={Link}
+            to={`/groups/${groupId}/settings`}
+            variant="outlined"
+            startIcon={<SettingsIcon />}
+          >
+            Group Settings
+          </Button>
+        </Box>
       </Box>
 
       <Typography variant="h4" component="h1" gutterBottom>
