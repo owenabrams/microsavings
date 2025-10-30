@@ -14,6 +14,7 @@ import GroupsList from './components/GroupsList';
 import GroupDetail from './components/GroupDetail';
 import GroupSettings from './components/GroupSettings';
 import MemberDashboard from './components/MemberDashboard';
+import MemberProfile from './components/MemberProfile';
 
 const theme = createTheme({
   palette: {
@@ -122,6 +123,16 @@ function App() {
               element={
                 isAuthenticated ? (
                   <GroupSettings />
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
+            <Route
+              path="/groups/:groupId/members/:memberId/profile"
+              element={
+                isAuthenticated ? (
+                  <MemberProfile />
                 ) : (
                   <Navigate to="/login" replace />
                 )
