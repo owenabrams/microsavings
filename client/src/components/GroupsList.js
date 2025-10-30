@@ -84,14 +84,24 @@ function GroupsList() {
                       <strong>Location:</strong> {group.village}, {group.parish}
                     </Typography>
                     <Typography variant="body2">
-                      <strong>District:</strong> {group.district}, {group.country}
+                      <strong>District:</strong> {group.district}{group.region ? `, ${group.region}` : ''}{group.country ? `, ${group.country}` : ''}
+                    </Typography>
+                    {group.meeting_location && (
+                      <Typography variant="body2">
+                        <strong>Meeting:</strong> {group.meeting_location}
+                      </Typography>
+                    )}
+                    <Typography variant="body2">
+                      <strong>Members:</strong> {group.total_members || 0}{group.max_members ? ` / ${group.max_members}` : ''}
                     </Typography>
                     <Typography variant="body2">
-                      <strong>Members:</strong> {group.total_members || 0}
+                      <strong>Total Savings:</strong> {group.currency || 'RWF'} {parseFloat(group.total_savings || 0).toLocaleString()}
                     </Typography>
-                    <Typography variant="body2">
-                      <strong>Total Savings:</strong> RWF {parseFloat(group.total_savings || 0).toLocaleString()}
-                    </Typography>
+                    {group.share_value && (
+                      <Typography variant="body2">
+                        <strong>Share Value:</strong> {group.currency || 'RWF'} {parseFloat(group.share_value || 0).toLocaleString()}
+                      </Typography>
+                    )}
                   </Box>
 
                   <Button

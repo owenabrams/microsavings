@@ -88,7 +88,7 @@ function GroupDetail() {
                 Group Information
               </Typography>
               <Grid container spacing={2}>
-                <Grid item xs={6}>
+                <Grid item xs={6} sm={4}>
                   <Typography variant="body2" color="text.secondary">
                     Status
                   </Typography>
@@ -98,22 +98,97 @@ function GroupDetail() {
                     size="small"
                   />
                 </Grid>
-                <Grid item xs={6}>
+                <Grid item xs={6} sm={4}>
                   <Typography variant="body2" color="text.secondary">
-                    Total Members
+                    Members
                   </Typography>
                   <Typography variant="body1">
-                    {members.length}
+                    {members.length}{group.max_members ? ` / ${group.max_members}` : ''}
                   </Typography>
                 </Grid>
+                {group.formation_date && (
+                  <Grid item xs={6} sm={4}>
+                    <Typography variant="body2" color="text.secondary">
+                      Formation Date
+                    </Typography>
+                    <Typography variant="body1">
+                      {new Date(group.formation_date).toLocaleDateString()}
+                    </Typography>
+                  </Grid>
+                )}
                 <Grid item xs={12}>
                   <Typography variant="body2" color="text.secondary">
                     Location
                   </Typography>
                   <Typography variant="body1">
-                    {group.village}, {group.parish}, {group.district}, {group.country}
+                    {group.village}, {group.parish}, {group.district}
+                    {group.region && `, ${group.region}`}
+                    {group.country && `, ${group.country}`}
                   </Typography>
                 </Grid>
+                {group.meeting_location && (
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="body2" color="text.secondary">
+                      Meeting Location
+                    </Typography>
+                    <Typography variant="body1">
+                      {group.meeting_location}
+                    </Typography>
+                  </Grid>
+                )}
+                {group.meeting_frequency && (
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="body2" color="text.secondary">
+                      Meeting Schedule
+                    </Typography>
+                    <Typography variant="body1">
+                      {group.meeting_frequency}
+                      {group.meeting_day && ` - Day ${group.meeting_day}`}
+                      {group.meeting_time && ` at ${group.meeting_time}`}
+                    </Typography>
+                  </Grid>
+                )}
+                {group.currency && (
+                  <Grid item xs={6} sm={4}>
+                    <Typography variant="body2" color="text.secondary">
+                      Currency
+                    </Typography>
+                    <Typography variant="body1">
+                      {group.currency}
+                    </Typography>
+                  </Grid>
+                )}
+                {group.share_value && (
+                  <Grid item xs={6} sm={4}>
+                    <Typography variant="body2" color="text.secondary">
+                      Share Value
+                    </Typography>
+                    <Typography variant="body1">
+                      {group.currency || 'RWF'} {parseFloat(group.share_value).toLocaleString()}
+                    </Typography>
+                  </Grid>
+                )}
+                {group.saving_cycle_months && (
+                  <Grid item xs={6} sm={4}>
+                    <Typography variant="body2" color="text.secondary">
+                      Saving Cycle
+                    </Typography>
+                    <Typography variant="body1">
+                      {group.saving_cycle_months} months
+                    </Typography>
+                  </Grid>
+                )}
+                {group.is_registered && (
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="body2" color="text.secondary">
+                      Registration
+                    </Typography>
+                    <Typography variant="body1">
+                      {group.registration_authority}
+                      {group.certificate_number && ` - ${group.certificate_number}`}
+                    </Typography>
+                  </Grid>
+                )}
                 {group.description && (
                   <Grid item xs={12}>
                     <Typography variant="body2" color="text.secondary">
@@ -165,7 +240,7 @@ function GroupDetail() {
                         </TableCell>
                         <TableCell>{member.phone_number}</TableCell>
                         <TableCell align="right">
-                          RWF {parseFloat(member.total_contributions || 0).toLocaleString()}
+                          {group.currency || 'RWF'} {parseFloat(member.total_contributions || 0).toLocaleString()}
                         </TableCell>
                         <TableCell align="right">
                           {parseFloat(member.attendance_percentage || 0).toFixed(1)}%
@@ -190,7 +265,7 @@ function GroupDetail() {
                   Total Savings
                 </Typography>
                 <Typography variant="h5" color="success.main">
-                  RWF {parseFloat(financialSummary.total_savings || 0).toLocaleString()}
+                  {group.currency || 'RWF'} {parseFloat(financialSummary.total_savings || 0).toLocaleString()}
                 </Typography>
               </Box>
               <Box sx={{ mt: 2 }}>
@@ -198,7 +273,7 @@ function GroupDetail() {
                   Total Loans
                 </Typography>
                 <Typography variant="h6">
-                  RWF {parseFloat(financialSummary.total_loans || 0).toLocaleString()}
+                  {group.currency || 'RWF'} {parseFloat(financialSummary.total_loans || 0).toLocaleString()}
                 </Typography>
               </Box>
               <Box sx={{ mt: 2 }}>
