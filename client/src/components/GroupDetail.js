@@ -30,9 +30,11 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import SearchIcon from '@mui/icons-material/Search';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import PersonIcon from '@mui/icons-material/Person';
+import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import { groupsAPI } from '../services/api';
+import AddMemberDialog from './AddMemberDialog';
 
 function GroupDetail() {
   const { groupId } = useParams();
@@ -42,6 +44,7 @@ function GroupDetail() {
   const [statusFilter, setStatusFilter] = useState('');
   const [anchorEl, setAnchorEl] = useState(null);
   const [selectedMember, setSelectedMember] = useState(null);
+  const [addMemberDialogOpen, setAddMemberDialogOpen] = useState(false);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['group', groupId],
@@ -266,7 +269,12 @@ function GroupDetail() {
                 <Typography variant="h6">
                   Members ({filteredMembers.length})
                 </Typography>
-                <Button variant="outlined" size="small" startIcon={<PersonIcon />}>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<PersonAddIcon />}
+                  onClick={() => setAddMemberDialogOpen(true)}
+                >
                   Add Member
                 </Button>
               </Box>
@@ -299,9 +307,13 @@ function GroupDetail() {
                     onChange={(e) => setRoleFilter(e.target.value)}
                   >
                     <MenuItem value="">All Roles</MenuItem>
-                    <MenuItem value="FOUNDER">Founder</MenuItem>
-                    <MenuItem value="OFFICER">Officer</MenuItem>
                     <MenuItem value="MEMBER">Member</MenuItem>
+                    <MenuItem value="CHAIRMAN">Chairman</MenuItem>
+                    <MenuItem value="VICE_CHAIRMAN">Vice Chairman</MenuItem>
+                    <MenuItem value="TREASURER">Treasurer</MenuItem>
+                    <MenuItem value="SECRETARY">Secretary</MenuItem>
+                    <MenuItem value="OFFICER">Officer</MenuItem>
+                    <MenuItem value="FOUNDER">Founder</MenuItem>
                   </TextField>
                 </Grid>
                 <Grid item xs={12} sm={3}>
@@ -450,6 +462,13 @@ function GroupDetail() {
           </Card>
         </Grid>
       </Grid>
+
+      {/* Add Member Dialog */}
+      <AddMemberDialog
+        open={addMemberDialogOpen}
+        onClose={() => setAddMemberDialogOpen(false)}
+        groupId={groupId}
+      />
     </Box>
   );
 }

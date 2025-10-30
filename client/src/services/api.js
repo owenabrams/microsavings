@@ -60,6 +60,9 @@ export const groupsAPI = {
   getMembers: (groupId) =>
     api.get(`/api/savings-groups/${groupId}/members`),
 
+  addMember: (groupId, data) =>
+    api.post(`/api/savings-groups/${groupId}/members`, data),
+
   getSettings: (groupId) =>
     api.get(`/api/groups/${groupId}/settings`),
 

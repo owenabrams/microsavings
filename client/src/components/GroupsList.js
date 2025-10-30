@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -12,9 +12,13 @@ import {
   Alert,
   Chip,
 } from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
 import { groupsAPI } from '../services/api';
+import CreateGroupDialog from './CreateGroupDialog';
 
 function GroupsList() {
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['groups'],
     queryFn: async () => {
@@ -47,7 +51,11 @@ function GroupsList() {
         <Typography variant="h4" component="h1">
           Savings Groups
         </Typography>
-        <Button variant="contained" disabled>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() => setCreateDialogOpen(true)}
+        >
           Create Group
         </Button>
       </Box>
@@ -125,6 +133,12 @@ function GroupsList() {
           Total Groups: {groups.length}
         </Typography>
       </Box>
+
+      {/* Create Group Dialog */}
+      <CreateGroupDialog
+        open={createDialogOpen}
+        onClose={() => setCreateDialogOpen(false)}
+      />
     </Box>
   );
 }

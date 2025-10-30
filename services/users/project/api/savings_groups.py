@@ -42,6 +42,9 @@ def get_all_groups():
         
         groups_list = []
         for group in groups:
+            # Calculate actual member count
+            actual_member_count = GroupMember.query.filter_by(group_id=group.id).count()
+
             groups_list.append({
                 'id': group.id,
                 'name': group.name,
@@ -59,7 +62,7 @@ def get_all_groups():
                 'formation_date': group.formation_date.isoformat() if group.formation_date else None,
                 'currency': group.currency,
                 'share_value': str(group.share_value or 0),
-                'total_members': group.members_count,
+                'total_members': actual_member_count,
                 'max_members': group.max_members,
                 'total_savings': str(group.savings_balance or 0),
                 'created_date': group.created_date.isoformat() if group.created_date else None
@@ -248,4 +251,91 @@ def get_group_members(group_id):
             'status': 'fail',
             'message': str(e)
         }), 500
+
+
+@savings_groups_blueprint.route('/<int:group_id>/members', methods=['POST'])
+@authenticate
+def add_group_member(user_id, group_id):
+    """Add a new member to a group."""
+    post_data = request.get_json()
+    response_object = {
+        'status': 'fail',
+        'message': 'Invalid payload.'
+    }
+
+    if not post_data:
+        return jsonify(response_object), 400
+
+    first_name = post_data.get('first_name')
+    last_name = post_data.get('last_name')
+
+    if not first_name or not last_name:
+        response_object['message'] = 'First name and last name are required.'
+        return jsonify(response_object), 400
+
+    try:
+        # Verify group exists
+        group = SavingsGroup.query.filter_by(id=group_id).first()
+        if not group:
+            response_object['message'] = 'Group not found.'
+            return jsonify(response_object), 404
+
+        # Check if group is at max capacity
+        current_members = GroupMember.query.filter_by(group_id=group_id).count()
+        if group.max_members and current_members >= group.max_members:
+            response_object['message'] = f'Group has reached maximum capacity of {group.max_members} members.'
+            return jsonify(response_object), 400
+
+        # Create new member
+        new_member = GroupMember(
+            group_id=group_id,
+            first_name=first_name,
+            last_name=last_name,
+            email=post_data.get('email'),
+            phone_number=post_data.get('phone_number'),
+            id_number=post_data.get('id_number'),
+            date_of_birth=post_data.get('date_of_birth'),
+            gender=post_data.get('gender'),
+            occupation=post_data.get('occupation'),
+            role=post_data.get('role', 'MEMBER'),
+            status=post_data.get('status', 'ACTIVE'),
+            is_active=True
+        )
+
+        # Use raw SQL to set address field (not in ORM model)
+        db.session.add(new_member)
+        db.session.flush()  # Get the ID
+
+        if post_data.get('address'):
+            db.session.execute(
+                db.text("UPDATE group_members SET address = :address WHERE id = :id"),
+                {'address': post_data.get('address'), 'id': new_member.id}
+            )
+
+        # Update group members_count
+        db.session.execute(
+            db.text("UPDATE savings_groups SET members_count = members_count + 1 WHERE id = :group_id"),
+            {'group_id': group_id}
+        )
+
+        db.session.commit()
+
+        response_object['status'] = 'success'
+        response_object['message'] = 'Member added successfully.'
+        response_object['data'] = {
+            'id': new_member.id,
+            'first_name': new_member.first_name,
+            'last_name': new_member.last_name,
+            'role': new_member.role
+        }
+        return jsonify(response_object), 201
+
+    except exc.IntegrityError as e:
+        db.session.rollback()
+        response_object['message'] = 'Member with this email or phone number already exists in this group.'
+        return jsonify(response_object), 400
+    except Exception as e:
+        db.session.rollback()
+        response_object['message'] = str(e)
+        return jsonify(response_object), 500
 

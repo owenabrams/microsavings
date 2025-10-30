@@ -363,6 +363,10 @@ function MemberSettings({ open, onClose, groupId, memberId }) {
                     onChange={(e) => handleChange('role', e.target.value)}
                   >
                     <MenuItem value="MEMBER">Member</MenuItem>
+                    <MenuItem value="CHAIRMAN">Chairman</MenuItem>
+                    <MenuItem value="VICE_CHAIRMAN">Vice Chairman</MenuItem>
+                    <MenuItem value="TREASURER">Treasurer</MenuItem>
+                    <MenuItem value="SECRETARY">Secretary</MenuItem>
                     <MenuItem value="OFFICER">Officer</MenuItem>
                     <MenuItem value="FOUNDER">Founder</MenuItem>
                   </TextField>
