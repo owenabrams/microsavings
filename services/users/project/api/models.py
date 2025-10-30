@@ -91,12 +91,25 @@ class SavingsGroup(db.Model):
     meeting_frequency = Column(String(50), default='WEEKLY')
     meeting_day = Column(Integer)
     meeting_time = Column(Time)
+    meeting_location = Column(String(255))
+    latitude = Column(Numeric(10, 8))
+    longitude = Column(Numeric(11, 8))
     minimum_contribution = Column(Numeric(10, 2))
     constitution_document_url = Column(String(255))
+    constitution_version = Column(String(50))
+    constitution_description = Column(Text)
     registration_certificate_url = Column(String(255))
     is_registered = Column(Boolean, default=False)
     registration_number = Column(String(100))
     registration_date = Column(Date)
+    registration_authority = Column(String(255))
+    certificate_number = Column(String(100))
+    currency = Column(String(10), default='UGX')
+    share_value = Column(Numeric(10, 2), default=5000.00)
+    standard_fine_amount = Column(Numeric(10, 2), default=1000.00)
+    loan_interest_rate = Column(Numeric(5, 4), default=0.0500)
+    negotiated_interest_rate = Column(Numeric(5, 4))
+    saving_cycle_months = Column(Integer, default=12)
     created_by = Column(Integer, ForeignKey('users.id'), nullable=False)
     created_date = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
     updated_date = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow, nullable=False)
@@ -104,6 +117,8 @@ class SavingsGroup(db.Model):
     # Relationships
     members = relationship('GroupMember', back_populates='group', lazy='dynamic', foreign_keys='[GroupMember.group_id]')
     meetings = relationship('Meeting', back_populates='group', lazy='dynamic')
+    settings = relationship('GroupSettings', back_populates='group', uselist=False)
+    documents = relationship('GroupDocument', back_populates='group', lazy='dynamic')
 
 
 class GroupMember(db.Model):
@@ -467,6 +482,103 @@ class SocialReaction(db.Model):
     member_id = Column(Integer, ForeignKey('group_members.id'), nullable=False)
     reaction_type = Column(String(50), nullable=False)
     created_date = Column(DateTime, default=datetime.datetime.utcnow)
+
+
+class GroupSettings(db.Model):
+    """Group settings model for activity configurations."""
+
+    __tablename__ = 'group_settings'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    group_id = Column(Integer, ForeignKey('savings_groups.id'), nullable=False, unique=True)
+
+    # Financial Activities (enabled/disabled)
+    personal_savings_enabled = Column(Boolean, default=True)
+    ecd_fund_enabled = Column(Boolean, default=True)
+    emergency_fund_enabled = Column(Boolean, default=False)
+    social_fund_enabled = Column(Boolean, default=True)
+    target_fund_enabled = Column(Boolean, default=False)
+
+    # Attendance Tracking Activities
+    attendance_tracking_enabled = Column(Boolean, default=True)
+
+    # Loan Activities
+    loan_disbursement_enabled = Column(Boolean, default=True)
+    loan_repayment_enabled = Column(Boolean, default=True)
+
+    # Other Activities
+    voting_session_enabled = Column(Boolean, default=True)
+    training_session_enabled = Column(Boolean, default=True)
+    fine_collection_enabled = Column(Boolean, default=True)
+
+    # Activity-specific settings
+    personal_savings_minimum = Column(Numeric(10, 2))
+    personal_savings_maximum = Column(Numeric(10, 2))
+    ecd_fund_minimum = Column(Numeric(10, 2))
+    ecd_fund_maximum = Column(Numeric(10, 2))
+    social_fund_minimum = Column(Numeric(10, 2))
+    social_fund_maximum = Column(Numeric(10, 2))
+
+    # Loan settings
+    max_loan_multiplier = Column(Numeric(5, 2), default=3.00)
+    min_months_for_loan = Column(Integer, default=3)
+    min_attendance_for_loan = Column(Numeric(5, 2), default=75.00)
+
+    # Fine settings
+    late_arrival_fine = Column(Numeric(10, 2))
+    absence_fine = Column(Numeric(10, 2))
+    missed_contribution_fine = Column(Numeric(10, 2))
+
+    # Meeting settings
+    quorum_percentage = Column(Numeric(5, 2), default=66.67)
+    allow_proxy_voting = Column(Boolean, default=False)
+
+    created_date = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
+    updated_date = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow, nullable=False)
+
+    # Relationships
+    group = relationship('SavingsGroup', back_populates='settings')
+
+
+class GroupDocument(db.Model):
+    """Group document model for attachments."""
+
+    __tablename__ = 'group_documents'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    group_id = Column(Integer, ForeignKey('savings_groups.id'), nullable=False)
+
+    # Document details
+    document_title = Column(String(255), nullable=False)
+    document_type = Column(String(50), nullable=False)  # CONSTITUTION, TRAINING, FINANCIAL_RECORD, REGISTRATION, OTHER
+    document_category = Column(String(50))
+    version = Column(String(50))
+    description = Column(Text)
+
+    # File information
+    file_path = Column(String(500), nullable=False)
+    file_name = Column(String(255), nullable=False)
+    file_size = Column(Integer)
+    mime_type = Column(String(100))
+
+    # Document status
+    is_active = Column(Boolean, default=True)
+    is_current_version = Column(Boolean, default=True)
+
+    # Upload tracking
+    uploaded_by = Column(Integer, ForeignKey('users.id'))
+    upload_date = Column(DateTime, default=datetime.datetime.utcnow)
+
+    # Approval tracking
+    approved_by = Column(Integer, ForeignKey('users.id'))
+    approval_date = Column(DateTime)
+    approval_status = Column(String(20), default='PENDING')  # PENDING, APPROVED, REJECTED
+
+    created_date = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
+    updated_date = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow, nullable=False)
+
+    # Relationships
+    group = relationship('SavingsGroup', back_populates='documents')
 
 
 class DocumentTemplate(db.Model):

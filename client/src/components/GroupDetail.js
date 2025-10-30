@@ -20,6 +20,7 @@ import {
   Chip,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import SettingsIcon from '@mui/icons-material/Settings';
 import { groupsAPI } from '../services/api';
 
 function GroupDetail() {
@@ -61,9 +62,19 @@ function GroupDetail() {
 
   return (
     <Box>
-      <Button component={Link} to="/groups" startIcon={<ArrowBackIcon />} sx={{ mb: 2 }}>
-        Back to Groups
-      </Button>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Button component={Link} to="/groups" startIcon={<ArrowBackIcon />}>
+          Back to Groups
+        </Button>
+        <Button
+          component={Link}
+          to={`/groups/${groupId}/settings`}
+          variant="outlined"
+          startIcon={<SettingsIcon />}
+        >
+          Group Settings
+        </Button>
+      </Box>
 
       <Typography variant="h4" component="h1" gutterBottom>
         {group.name}

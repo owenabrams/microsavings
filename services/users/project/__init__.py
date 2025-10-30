@@ -31,10 +31,12 @@ def create_app(script_info=None):
     from project.api.auth import auth_blueprint
     from project.api.savings_groups import savings_groups_blueprint
     from project.api.members import members_blueprint
+    from project.api.group_settings import group_settings_blueprint
     from project.api.ping import ping_blueprint
 
     app.register_blueprint(auth_blueprint, url_prefix='/api/auth')
     app.register_blueprint(savings_groups_blueprint, url_prefix='/api/savings-groups')
+    app.register_blueprint(group_settings_blueprint, url_prefix='/api/groups')
     app.register_blueprint(members_blueprint, url_prefix='/api/members')
     app.register_blueprint(ping_blueprint)
     
