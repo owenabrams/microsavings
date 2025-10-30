@@ -1,108 +1,102 @@
-# Microservices with Docker, Flask, and React
+# Microfinance Savings Group Management Platform
 
-<!-- AURORA INTEGRATION: Professional PostgreSQL with Aurora Serverless v2 -->
-<!-- CI/CD: Fixed frontend paths for proper deployment -->
+A comprehensive web application for managing microfinance savings groups in Uganda, built with React, Flask, and PostgreSQL.
 
-[![Build Status](https://github.com/owenabrams/testdriven-app/workflows/Continuous%20Integration%20and%20Delivery/badge.svg?branch=main)](https://github.com/owenabrams/testdriven-app/actions)
+## Quick Start
 
-## 🎉 Production Setup Complete!
+### Prerequisites
+- Docker Desktop
+- Git
 
-This application features a modern 3-service microservices architecture with automated deployment:
+### Installation
 
-### ✅ **Architecture**
-- **Frontend Service**: React application with nginx
-- **Backend Service**: Flask API with PostgreSQL
-- **Database Service**: PostgreSQL (Local for testing, RDS for production)
-
-### ✅ **Deployment & CI/CD**
-- **GitHub Actions**: Automated testing and deployment
-- **ECS Production Automation**: Zero-downtime deployments
-- **Branch-based Deployment**: Push to `production` branch triggers deployment
-- **Modern Secrets Management**: GitHub repository secrets
-
-### ✅ **Cost Optimization**
-- **Local PostgreSQL**: $0/month for testing and development
-- **Easy RDS Migration**: Switch to managed database when needed
-- **Efficient Resource Usage**: Optimized container configurations
-
-### 🚀 **Quick Start - Professional Rebuild**
-
-#### **Complete System Rebuild (Recommended)**
+1. **Clone and start:**
 ```bash
-# Execute the professional rebuild script
-./scripts/rebuild-clean.sh
+git clone https://github.com/owenabrams/microsavings.git
+cd microsavings
+docker compose -f docker-compose.professional.yml up -d --build
 ```
 
-This single command will:
-- ✅ Stop and clean all containers
-- ✅ Build fresh Docker images
-- ✅ Start all services
-- ✅ Run database migrations
-- ✅ Seed comprehensive 12-month member journey data
-- ✅ Verify all services are healthy
+2. **Access the application:**
+- Frontend: http://localhost:3001
+- Backend API: http://localhost:5001
+- Database Admin: http://localhost:8080
 
-**Total time:** ~3 minutes
-
-#### **Access After Rebuild**
-- **Frontend:** http://localhost:3001
-- **Backend:** http://localhost:5000
-- **Database:** localhost:5432
-
-**Default Credentials:**
+3. **Login:**
 - Email: `admin@savingsgroup.com`
 - Password: `admin123`
 
-#### **For Detailed Instructions**
-See [REBUILD_PROCEDURE.md](REBUILD_PROCEDURE.md) for:
-- Step-by-step procedure
-- Database configuration
-- Troubleshooting guide
-- Manual rebuild alternative
-- Testing procedures
-
-#### **Verify Installation**
+### Seed Sample Data (Optional)
 ```bash
-# Check containers are running
-docker ps
-
-# Test backend API
-curl http://localhost:5000/api/ping
-
-# Run E2E tests
-python E2E_TEST_SUITE.py
+docker exec -it testdriven_backend python /usr/src/app/scripts/seed_comprehensive_12month_journey.py
 ```
 
-#### **Production Deployment**
-```bash
-# Automated deployment (triggers on push to production branch)
-git push origin production
+## Technology Stack
 
-# Manual deployment
-./scripts/deploy-production-complete.sh DB_PASSWORD SECRET_KEY
+- **Frontend:** React 18, Material-UI v5, React Query v5
+- **Backend:** Flask 2.3.3, SQLAlchemy 3.0.5
+- **Database:** PostgreSQL 15
+- **Infrastructure:** Docker, Nginx
 
-# Local production testing
-./scripts/test-local-production.sh
+## Project Structure
+
+```
+microsavings/
+├── client/                          # React frontend
+│   ├── src/components/             # UI components
+│   │   └── Dashboard/              # Dashboard cards
+│   └── src/services/api.js         # API client
+├── services/users/                  # Flask backend
+│   ├── project/api/                # API endpoints
+│   │   ├── auth.py                 # Authentication
+│   │   ├── members.py              # Member endpoints
+│   │   └── savings_groups.py       # Group endpoints
+│   └── scripts/                    # Seeding scripts
+├── migrations/                      # Database schema
+└── docker-compose.professional.yml  # Docker orchestration
 ```
 
-### 📋 **Key Adaptations from TestDriven Tutorial**
-- ✅ **GitHub Actions** instead of Travis CI
-- ✅ **3-service architecture** instead of 4-service
-- ✅ **us-east-1** region instead of us-west-1
-- ✅ **Local PostgreSQL** option for cost-effective testing
-- ✅ **Modern container orchestration** with ECS
+## Implementation Status
 
-### 🔧 **Production Services**
-- **Frontend**: `testdriven-client-prod-service` (React + nginx)
-- **Backend**: `testdriven-users-prod-service` (Flask API)
-- **Database**: Local PostgreSQL or AWS RDS
-- **Load Balancer**: Application Load Balancer with path-based routing
+### ✅ Phase 1: Member Financial Dashboard (COMPLETE)
+- Member dashboard with 6 cards (savings, loans, performance, metrics, IGA)
+- Savings tracking by fund type (Personal, ECD, Social)
+- Loan eligibility display
+- Performance comparison with group averages
 
-### 📊 **Monitoring & Testing**
-- **CloudWatch Logs**: Centralized logging for all services
-- **Health Checks**: Automated service health monitoring
-- **End-to-End Testing**: Comprehensive test suite with Cypress
-- **Database Connectivity**: Automated connection testing
+### 🔄 Upcoming Phases
+- Phase 1.5: IGA (Income Generating Activities)
+- Phase 2: Loan Management
+- Phase 3: Achievements & Gamification
+- Phase 4: Analytics & Reporting
+- Phase 5: Advanced Features (QR, GPS, Mobile Money)
+- Phase 6: Intelligence & AI
+- Phase 7: Social Engagement
 
----
+## Development Commands
 
-**Built following the TestDriven.io tutorial with modern adaptations for GitHub Actions and cost optimization.**
+```bash
+# Rebuild specific service
+docker compose -f docker-compose.professional.yml up -d --build frontend
+docker compose -f docker-compose.professional.yml up -d --build backend
+
+# View logs
+docker logs testdriven_frontend --tail 50
+docker logs testdriven_backend --tail 50
+
+# Database access
+docker exec -it testdriven_db psql -U postgres -d users_dev
+
+# Stop all services
+docker compose -f docker-compose.professional.yml down
+```
+
+## Documentation
+
+- **SYSTEM_SPECIFICATION_COMPLETE.md** - Complete feature specifications (all 7 phases)
+- **ORM_DATABASE_ALIGNMENT_GUIDE.md** - Database schema and ORM alignment
+- **CLEAN_SLATE_REBUILD_SUCCESS_REPORT.md** - Rebuild procedures
+
+## License
+
+Proprietary - All rights reserved

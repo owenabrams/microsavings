@@ -136,3 +136,41 @@ backups/
 .DS_Store
 Thumbs.db
 
+# AI-generated documentation junk (keep only essential docs)
+*_SUMMARY.md
+*_GUIDE.md
+*_COMPLETE.md
+*_REPORT.md
+*_PLAN.md
+*_ANALYSIS.md
+*_LESSONS*.md
+*_HANDOFF*.md
+*_TESTING*.md
+*_REFERENCE.md
+*_INDEX.md
+*_INTEGRATION.md
+*_IMPLEMENTATION*.md
+*_ACTIVITIES*.md
+*_ENGAGEMENT*.md
+*_FEATURES*.md
+*_ANALYTICS*.md
+*_ACHIEVEMENTS*.md
+*_SPECIFICATION*.md
+*_ARCHITECTURE*.md
+*_TROUBLESHOOTING.md
+*_DEPLOYMENT.md
+*_PROCEDURE.md
+
+# Exception: Keep these essential docs
+!SYSTEM_SPECIFICATION_COMPLETE.md
+!ORM_DATABASE_ALIGNMENT_GUIDE.md
+!CLEAN_SLATE_REBUILD_SUCCESS_REPORT.md
+
+# Backup and archive files
+*.zip
+*.tar.gz
+*.tar
+*_backup/
+backup_*/
+migrations_backup/
+
