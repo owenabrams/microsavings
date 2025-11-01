@@ -537,11 +537,16 @@ def create_saving_types():
                     code=code,
                     description=desc,
                     is_mandatory=mandatory,
+                    is_system=True,  # Mark as system type so it's available to all groups
                     is_active=True,
                     allows_withdrawal=True,
                     interest_rate=Decimal('0.0')
                 )
                 db.session.add(st)
+            else:
+                # Update existing types to be system types
+                st.is_system = True
+                st.is_active = True
 
         db.session.commit()
         print("   ✅ Saving types created")
