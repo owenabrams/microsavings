@@ -205,7 +205,7 @@ services/users/
 ├── manage.py                          # CLI commands (seed_db, seed_demo_data)
 ├── startup.sh                         # Auto-seeding on first run
 ├── seed_comprehensive_data.py         # Main seeding script (NEW)
-├── seed_mobile_money_test.py          # Mobile money test data
+├── seed_comprehensive_data.py         # PRIMARY: Comprehensive seeding (auto-runs on first build)
 ├── project/
 │   ├── __init__.py                   # Flask app factory
 │   ├── config.py                     # Configuration

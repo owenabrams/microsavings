@@ -26,10 +26,27 @@ docker compose -f docker-compose.professional.yml up -d --build
 - Email: `admin@savingsgroup.com`
 - Password: `admin123`
 
-### Seed Sample Data (Optional)
+### Seed Sample Data
+
+**Note:** Sample data is automatically seeded on first build. To manually re-seed:
+
 ```bash
-docker exec -it testdriven_backend python /usr/src/app/scripts/seed_comprehensive_12month_journey.py
+# Option 1: Clear marker and restart (triggers auto-seeding)
+docker compose -f docker-compose.professional.yml exec backend rm -f /usr/src/app/.data_seeded
+docker compose -f docker-compose.professional.yml restart backend
+
+# Option 2: Run seeding script directly
+docker compose -f docker-compose.professional.yml exec backend python seed_comprehensive_data.py
+
+# Option 3: Use CLI command
+docker compose -f docker-compose.professional.yml exec backend python manage.py seed_demo_data
 ```
+
+**Seeded Data Includes:**
+- 3 diverse savings groups (Rwanda, Uganda, Kenya)
+- 21 members with login credentials (password: `password123`)
+- 24 weekly meetings per group (6 months of data)
+- Complete transaction coverage: savings, fines, loans, training, voting
 
 ## Technology Stack
 

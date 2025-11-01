@@ -238,9 +238,9 @@ docker compose -f docker-compose.professional.yml exec backend python manage.py 
 - `AGENT_HANDOFF_2025_11_01.md` - Complete system documentation
 - `COMPREHENSIVE_SEEDING_SYSTEM_COMPLETE.md` - This file
 
-### **Previous Seeding Scripts (Deprecated)**
-- `services/users/seed_mobile_money_test.py` - Mobile money test data
-- `services/users/seed_test_data.py` - Old test data script
+### **Active Seeding System**
+- `services/users/seed_comprehensive_data.py` - **PRIMARY** comprehensive seeding script
+- All old seeding scripts have been removed to prevent confusion
 
 ---
 
