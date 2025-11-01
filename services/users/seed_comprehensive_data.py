@@ -44,6 +44,7 @@ def ensure_schema_complete():
         missing_columns = [
             # group_members table
             ("group_members", "target_amount", "NUMERIC(15, 2) DEFAULT 0"),
+            ("group_members", "profile_photo_url", "VARCHAR(500)"),
 
             # transaction tables - notes column
             ("saving_transactions", "notes", "TEXT"),
