@@ -23,6 +23,7 @@ import SaveIcon from '@mui/icons-material/Save';
 import SettingsIcon from '@mui/icons-material/Settings';
 import api from '../services/api';
 import ManageSavingTypes from './ManageSavingTypes';
+import GroupDocumentsTab from './GroupDocumentsTab';
 
 function TabPanel({ children, value, index }) {
   return (
@@ -40,6 +41,16 @@ function GroupSettings() {
   const [formData, setFormData] = useState(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [manageSavingTypesOpen, setManageSavingTypesOpen] = useState(false);
+
+  // Get current user to check admin status
+  const [currentUser, setCurrentUser] = useState(null);
+
+  useEffect(() => {
+    const userData = localStorage.getItem('user');
+    if (userData) {
+      setCurrentUser(JSON.parse(userData));
+    }
+  }, []);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['groupSettings', groupId],
@@ -148,6 +159,7 @@ function GroupSettings() {
           <Tab label="Activities" />
           <Tab label="Loan Settings" />
           <Tab label="Fine Settings" />
+          <Tab label="Documents" />
         </Tabs>
 
         <CardContent>
@@ -596,6 +608,14 @@ function GroupSettings() {
                 />
               </Grid>
             </Grid>
+          </TabPanel>
+
+          {/* Documents Tab */}
+          <TabPanel value={activeTab} index={6}>
+            <GroupDocumentsTab
+              groupId={groupId}
+              isAdmin={currentUser?.admin || false}
+            />
           </TabPanel>
         </CardContent>
       </Card>

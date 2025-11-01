@@ -45,7 +45,12 @@ const EditSavingsTransactionDialog = ({ open, onClose, transaction, savingTypes 
 
   // Update mutation
   const updateMutation = useMutation({
-    mutationFn: (data) => transactionsAPI.updateSavingsTransaction(transaction.id, data),
+    mutationFn: (data) => {
+      if (!transaction || !transaction.id) {
+        throw new Error('Transaction not found');
+      }
+      return transactionsAPI.updateSavingsTransaction(transaction.id, data);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries(['meeting']);
       onClose();

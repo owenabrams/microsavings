@@ -943,3 +943,219 @@ class MemberActivityParticipation(db.Model):
     member = relationship('GroupMember')
     verifier = relationship('User', foreign_keys=[verified_by])
 
+
+class TransactionDocument(db.Model):
+    """
+    Polymorphic document model for attaching files to any transaction type.
+
+    This model uses a polymorphic association pattern to support document attachments
+    for multiple entity types through a single table. The entity_type and entity_id
+    fields work together to reference any transaction type.
+
+    Supported entity types:
+    - 'training': Training sessions (training_records table)
+    - 'voting': Voting sessions (voting_records table)
+    - 'loan_repayment': Loan repayment transactions (loan_repayments table)
+    - 'fine': Member fines (member_fines table)
+    - 'savings': Savings transactions (saving_transactions table)
+    - 'meeting': Meeting-level documents (meetings table)
+    - 'member': Member documents (group_members table)
+    - 'group': Group documents (savings_groups table)
+
+    Features:
+    - File compression for large files
+    - Thumbnail and preview generation
+    - File hash for deduplication
+    - Soft delete support
+    - Access control levels
+    - Audit trail (uploaded_by, upload_date)
+
+    Usage Example:
+        # Attach document to training
+        doc = TransactionDocument(
+            entity_type='training',
+            entity_id=training.id,
+            document_name='certificate.pdf',
+            original_filename='certificate.pdf',
+            document_type='CERTIFICATE',
+            file_path='/path/to/file',
+            file_size=12345,
+            uploaded_by=user_id
+        )
+        db.session.add(doc)
+        db.session.commit()
+
+        # Get all documents for a training
+        docs = TransactionDocument.get_for_entity('training', training_id)
+
+        # Count documents
+        count = TransactionDocument.count_for_entity('training', training_id)
+    """
+
+    __tablename__ = 'transaction_documents'
+
+    # Primary key
+    id = Column(Integer, primary_key=True, autoincrement=True)
+
+    # Polymorphic relationship fields
+    entity_type = Column(String(50), nullable=False, index=True)
+    entity_id = Column(Integer, nullable=False, index=True)
+
+    # Document metadata
+    document_name = Column(String(255), nullable=False)
+    original_filename = Column(String(255), nullable=False)
+    document_type = Column(String(50), nullable=False)  # RECEIPT, INVOICE, PHOTO, REPORT, CERTIFICATE, OTHER
+    description = Column(Text)
+    document_category = Column(String(50))  # FINANCIAL, TRAINING, VOTING, LEGAL, GENERAL
+
+    # File information
+    file_path = Column(String(500), nullable=False)
+    file_size = Column(Integer, nullable=False)
+    mime_type = Column(String(100))
+    file_hash = Column(String(64))  # SHA-256 hash for deduplication
+
+    # Compression features
+    is_compressed = Column(Boolean, default=False)
+    compressed_size = Column(Integer)
+    compression_ratio = Column(Numeric(5, 2))
+
+    # Preview features
+    thumbnail_path = Column(String(500))
+    preview_path = Column(String(500))
+    has_preview = Column(Boolean, default=False)
+
+    # Access control
+    is_public = Column(Boolean, default=False)
+    access_level = Column(String(50), default='GROUP')  # GROUP, ADMIN, PUBLIC
+    is_proof_document = Column(Boolean, default=False)
+
+    # Audit fields
+    uploaded_by = Column(Integer, ForeignKey('users.id'))
+    upload_date = Column(DateTime, default=datetime.datetime.utcnow)
+    created_date = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
+    updated_date = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow, nullable=False)
+
+    # Soft delete
+    is_deleted = Column(Boolean, default=False)
+    deleted_at = Column(DateTime)
+    deleted_by = Column(Integer, ForeignKey('users.id'))
+
+    # Relationships
+    uploader = relationship('User', foreign_keys=[uploaded_by])
+    deleter = relationship('User', foreign_keys=[deleted_by])
+
+    def to_dict(self):
+        """
+        Convert to dictionary for API responses.
+
+        Returns:
+            dict: Dictionary representation of the document
+        """
+        return {
+            'id': self.id,
+            'entity_type': self.entity_type,
+            'entity_id': self.entity_id,
+            'document_name': self.document_name,
+            'original_filename': self.original_filename,
+            'document_type': self.document_type,
+            'description': self.description,
+            'document_category': self.document_category,
+            'file_size': self.file_size,
+            'compressed_size': self.compressed_size,
+            'is_compressed': self.is_compressed,
+            'compression_ratio': float(self.compression_ratio) if self.compression_ratio else 0,
+            'mime_type': self.mime_type,
+            'has_preview': self.has_preview,
+            'thumbnail_path': self.thumbnail_path,
+            'preview_path': self.preview_path,
+            'is_public': self.is_public,
+            'access_level': self.access_level,
+            'is_proof_document': self.is_proof_document,
+            'uploaded_by': self.uploaded_by,
+            'upload_date': self.upload_date.isoformat() if self.upload_date else None,
+            'created_date': self.created_date.isoformat() if self.created_date else None,
+            'is_deleted': self.is_deleted
+        }
+
+    @staticmethod
+    def get_for_entity(entity_type, entity_id):
+        """
+        Get all non-deleted documents for a specific entity.
+
+        Args:
+            entity_type (str): Type of entity ('training', 'voting', etc.)
+            entity_id (int): ID of the entity
+
+        Returns:
+            list: List of TransactionDocument objects ordered by upload date (newest first)
+        """
+        return TransactionDocument.query.filter_by(
+            entity_type=entity_type,
+            entity_id=entity_id,
+            is_deleted=False
+        ).order_by(TransactionDocument.upload_date.desc()).all()
+
+    @staticmethod
+    def get_entity_types():
+        """
+        Get list of supported entity types.
+
+        Returns:
+            list: List of valid entity type strings
+        """
+        return [
+            'training',
+            'voting',
+            'loan_repayment',
+            'fine',
+            'savings',
+            'meeting',
+            'member',
+            'group'
+        ]
+
+    @staticmethod
+    def count_for_entity(entity_type, entity_id):
+        """
+        Get count of non-deleted documents for an entity.
+
+        Args:
+            entity_type (str): Type of entity
+            entity_id (int): ID of the entity
+
+        Returns:
+            int: Number of documents
+        """
+        return TransactionDocument.query.filter_by(
+            entity_type=entity_type,
+            entity_id=entity_id,
+            is_deleted=False
+        ).count()
+
+    @staticmethod
+    def validate_entity_type(entity_type):
+        """
+        Validate if entity type is supported.
+
+        Args:
+            entity_type (str): Entity type to validate
+
+        Returns:
+            bool: True if valid, False otherwise
+        """
+        return entity_type in TransactionDocument.get_entity_types()
+
+    def soft_delete(self, deleted_by_user_id):
+        """
+        Soft delete the document.
+
+        Args:
+            deleted_by_user_id (int): ID of user performing the deletion
+        """
+        self.is_deleted = True
+        self.deleted_at = datetime.datetime.utcnow()
+        self.deleted_by = deleted_by_user_id
+
+    def __repr__(self):
+        return f'<TransactionDocument {self.id}: {self.document_name} for {self.entity_type}#{self.entity_id}>'
+

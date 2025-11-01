@@ -47,20 +47,26 @@ def seed_db():
 
 @cli.command('seed_demo_data')
 def seed_demo_data():
-    """Seed comprehensive demo data."""
+    """Seed comprehensive demo data with all transaction types."""
     print('🌱 Seeding comprehensive demo data...')
-    
+
     # Import and run the comprehensive seeding script
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'scripts'))
-    
+    sys.path.insert(0, os.path.dirname(__file__))
+
     try:
-        from seed_comprehensive_12month_journey import main as seed_main
+        from seed_comprehensive_data import main as seed_main
         seed_main()
         print('✅ Demo data seeded successfully!')
     except Exception as e:
         print(f'❌ Error seeding demo data: {str(e)}')
         import traceback
         traceback.print_exc()
+
+
+@cli.command('seed_comprehensive')
+def seed_comprehensive():
+    """Seed comprehensive data (alias for seed_demo_data)."""
+    seed_demo_data()
 
 
 @cli.command('create_super_admin')

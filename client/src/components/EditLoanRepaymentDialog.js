@@ -39,7 +39,12 @@ const EditLoanRepaymentDialog = ({ open, onClose, repayment, currency = 'UGX' })
 
   // Update mutation
   const updateMutation = useMutation({
-    mutationFn: (data) => transactionsAPI.updateLoanRepayment(repayment.id, data),
+    mutationFn: (data) => {
+      if (!repayment || !repayment.id) {
+        throw new Error('Repayment not found');
+      }
+      return transactionsAPI.updateLoanRepayment(repayment.id, data);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries(['meeting']);
       onClose();

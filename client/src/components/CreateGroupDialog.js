@@ -25,7 +25,7 @@ export default function CreateGroupDialog({ open, onClose }) {
     parish: '',
     village: '',
     max_members: 30,
-    currency: 'RWF',
+    currency: 'UGX',
     share_value: 1000,
     meeting_frequency: 'WEEKLY',
     meeting_day: 'MONDAY'
@@ -72,7 +72,7 @@ export default function CreateGroupDialog({ open, onClose }) {
       parish: '',
       village: '',
       max_members: 30,
-      currency: 'RWF',
+      currency: 'UGX',
       share_value: 1000,
       meeting_frequency: 'WEEKLY',
       meeting_day: 'MONDAY'

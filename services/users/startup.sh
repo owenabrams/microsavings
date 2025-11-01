@@ -32,7 +32,15 @@ python manage.py db upgrade || echo "⚠️  No migrations to run"
 
 # Seed initial data
 echo "🌱 Seeding initial data..."
-python manage.py seed_db || echo "⚠️  Seeding skipped"
+python manage.py seed_db || echo "⚠️  Admin seeding skipped"
+
+# Check if comprehensive data should be seeded (only on first run)
+if [ ! -f "/usr/src/app/.data_seeded" ]; then
+    echo "🌱 First run detected - seeding comprehensive demo data..."
+    python manage.py seed_demo_data && touch /usr/src/app/.data_seeded || echo "⚠️  Demo data seeding skipped"
+else
+    echo "ℹ️  Demo data already seeded (delete /usr/src/app/.data_seeded to reseed)"
+fi
 
 # Start the Flask application
 echo "🎯 Starting Flask application on port 5001..."

@@ -7,7 +7,7 @@ import {
 } from '@mui/material';
 import SaveIcon from '@mui/icons-material/Save';
 import CloseIcon from '@mui/icons-material/Close';
-import api from '../services/api';
+import { membersAPI } from '../services/api';
 
 function TabPanel({ children, value, index }) {
   return (
@@ -28,7 +28,7 @@ function MemberSettings({ open, onClose, groupId, memberId }) {
   const { data: profileData, isLoading: profileLoading } = useQuery({
     queryKey: ['memberProfile', groupId, memberId],
     queryFn: async () => {
-      const response = await api.get(`/api/groups/${groupId}/members/${memberId}/profile`);
+      const response = await membersAPI.getProfile(groupId, memberId);
       return response.data.data;
     },
     enabled: open
@@ -38,7 +38,7 @@ function MemberSettings({ open, onClose, groupId, memberId }) {
   const { data: settingsData, isLoading: settingsLoading } = useQuery({
     queryKey: ['memberSettings', groupId, memberId],
     queryFn: async () => {
-      const response = await api.get(`/api/groups/${groupId}/members/${memberId}/settings`);
+      const response = await membersAPI.getSettings(groupId, memberId);
       return response.data.data;
     },
     enabled: open
@@ -86,7 +86,7 @@ function MemberSettings({ open, onClose, groupId, memberId }) {
   // Update profile mutation
   const updateProfileMutation = useMutation({
     mutationFn: async (data) => {
-      return await api.put(`/api/groups/${groupId}/members/${memberId}/profile`, data);
+      return await membersAPI.updateProfile(groupId, memberId, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['memberProfile', groupId, memberId]);
@@ -103,7 +103,7 @@ function MemberSettings({ open, onClose, groupId, memberId }) {
   // Update settings mutation
   const updateSettingsMutation = useMutation({
     mutationFn: async (data) => {
-      return await api.put(`/api/groups/${groupId}/members/${memberId}/settings`, data);
+      return await membersAPI.updateSettings(groupId, memberId, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['memberSettings', groupId, memberId]);

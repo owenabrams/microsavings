@@ -36,7 +36,7 @@ function MeetingsList() {
   const { data: groupData } = useQuery({
     queryKey: ['group', groupId],
     queryFn: async () => {
-      const response = await groupsAPI.getGroup(groupId);
+      const response = await groupsAPI.getById(groupId);
       return response.data;
     },
   });

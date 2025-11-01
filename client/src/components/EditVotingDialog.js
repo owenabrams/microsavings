@@ -39,7 +39,12 @@ const EditVotingDialog = ({ open, onClose, voting }) => {
 
   // Update mutation
   const updateMutation = useMutation({
-    mutationFn: (data) => transactionsAPI.updateVoting(voting.id, data),
+    mutationFn: (data) => {
+      if (!voting || !voting.id) {
+        throw new Error('Voting not found');
+      }
+      return transactionsAPI.updateVoting(voting.id, data);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries(['meeting']);
       onClose();

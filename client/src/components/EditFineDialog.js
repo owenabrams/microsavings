@@ -45,7 +45,12 @@ const EditFineDialog = ({ open, onClose, fine, currency = 'UGX' }) => {
 
   // Update mutation
   const updateMutation = useMutation({
-    mutationFn: (data) => transactionsAPI.updateFine(fine.id, data),
+    mutationFn: (data) => {
+      if (!fine || !fine.id) {
+        throw new Error('Fine not found');
+      }
+      return transactionsAPI.updateFine(fine.id, data);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries(['meeting']);
       onClose();

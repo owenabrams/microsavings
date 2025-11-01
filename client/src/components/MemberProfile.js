@@ -17,7 +17,7 @@ import HomeIcon from '@mui/icons-material/Home';
 import BadgeIcon from '@mui/icons-material/Badge';
 import WorkIcon from '@mui/icons-material/Work';
 import CakeIcon from '@mui/icons-material/Cake';
-import api from '../services/api';
+import { membersAPI } from '../services/api';
 import MemberSettings from './MemberSettings';
 
 function TabPanel({ children, value, index, ...other }) {
@@ -38,7 +38,7 @@ function MemberProfile() {
   const { data: profileData, isLoading: profileLoading, error: profileError, refetch: refetchProfile } = useQuery({
     queryKey: ['memberProfile', groupId, memberId],
     queryFn: async () => {
-      const response = await api.get(`/api/groups/${groupId}/members/${memberId}/profile`);
+      const response = await membersAPI.getProfile(groupId, memberId);
       return response.data.data;
     }
   });
@@ -47,7 +47,7 @@ function MemberProfile() {
   const { data: activityData, isLoading: activityLoading } = useQuery({
     queryKey: ['memberActivity', groupId, memberId],
     queryFn: async () => {
-      const response = await api.get(`/api/groups/${groupId}/members/${memberId}/activity-log`);
+      const response = await membersAPI.getActivityLog(groupId, memberId);
       return response.data.data;
     },
     enabled: activeTab === 4 // Only fetch when Activity tab is active
@@ -57,7 +57,7 @@ function MemberProfile() {
   const { data: documentsData, isLoading: documentsLoading, refetch: refetchDocuments } = useQuery({
     queryKey: ['memberDocuments', groupId, memberId],
     queryFn: async () => {
-      const response = await api.get(`/api/groups/${groupId}/members/${memberId}/documents`);
+      const response = await membersAPI.getDocuments(groupId, memberId);
       return response.data.data;
     },
     enabled: activeTab === 3 // Only fetch when Documents tab is active

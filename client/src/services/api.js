@@ -74,11 +74,35 @@ export const groupsAPI = {
 };
 
 export const membersAPI = {
+  // Basic member info
   getById: (memberId) =>
     api.get(`/api/members/${memberId}`),
 
+  // Member dashboard with comprehensive data
   getDashboard: (memberId) =>
     api.get(`/api/members/${memberId}/dashboard`),
+
+  // Member profile (detailed personal information)
+  getProfile: (groupId, memberId) =>
+    api.get(`/api/groups/${groupId}/members/${memberId}/profile`),
+
+  updateProfile: (groupId, memberId, data) =>
+    api.put(`/api/groups/${groupId}/members/${memberId}/profile`, data),
+
+  // Member settings (membership details, permissions)
+  getSettings: (groupId, memberId) =>
+    api.get(`/api/groups/${groupId}/members/${memberId}/settings`),
+
+  updateSettings: (groupId, memberId, data) =>
+    api.put(`/api/groups/${groupId}/members/${memberId}/settings`, data),
+
+  // Member activity log
+  getActivityLog: (groupId, memberId, params) =>
+    api.get(`/api/groups/${groupId}/members/${memberId}/activity-log`, { params }),
+
+  // Member documents
+  getDocuments: (groupId, memberId) =>
+    api.get(`/api/groups/${groupId}/members/${memberId}/documents`),
 };
 
 export const meetingsAPI = {
@@ -235,6 +259,124 @@ export const transactionsAPI = {
   // Update voting session
   updateVoting: (votingId, data) =>
     api.put(`/api/votings/${votingId}`, data),
+};
+
+// Remote Payments API - for mobile money remote contributions
+export const remotePaymentsAPI = {
+  // Submit remote payment
+  submitRemotePayment: (meetingId, data) =>
+    api.post(`/api/meetings/${meetingId}/remote-payment`, data),
+
+  // Get pending payments for a meeting
+  getPendingPayments: (meetingId) =>
+    api.get(`/api/meetings/${meetingId}/pending-payments`),
+
+  // Verify or reject a remote payment
+  verifyPayment: (transactionId, action, notes) =>
+    api.put(`/api/savings-transactions/${transactionId}/verify`, {
+      action,
+      notes,
+    }),
+};
+
+// Transaction Documents API - unified document management
+export const transactionDocumentsAPI = {
+  // Upload documents to an entity
+  uploadDocuments: (entityType, entityId, files, metadata = {}) => {
+    const formData = new FormData();
+
+    // Add files
+    files.forEach(file => {
+      formData.append('files', file);
+    });
+
+    // Add metadata
+    if (metadata.document_type) formData.append('document_type', metadata.document_type);
+    if (metadata.document_category) formData.append('document_category', metadata.document_category);
+    if (metadata.description) formData.append('description', metadata.description);
+    if (metadata.is_proof_document !== undefined) {
+      formData.append('is_proof_document', metadata.is_proof_document ? 'true' : 'false');
+    }
+
+    return api.post(`/api/transaction-documents/documents/${entityType}/${entityId}`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
+
+  // List documents for an entity
+  listDocuments: (entityType, entityId) =>
+    api.get(`/api/transaction-documents/documents/${entityType}/${entityId}`),
+
+  // Get document details
+  getDocumentDetails: (documentId) =>
+    api.get(`/api/transaction-documents/documents/${documentId}`),
+
+  // Download document
+  downloadDocument: (documentId) =>
+    api.get(`/api/transaction-documents/documents/${documentId}/download`, {
+      responseType: 'blob',
+    }),
+
+  // Get document preview/thumbnail
+  getDocumentPreview: (documentId, type = 'thumbnail') =>
+    api.get(`/api/transaction-documents/documents/${documentId}/preview`, {
+      params: { type },
+      responseType: 'blob',
+    }),
+
+  // Delete document (soft delete)
+  deleteDocument: (documentId) =>
+    api.delete(`/api/transaction-documents/documents/${documentId}`),
+};
+
+// Group Documents API - Constitution, Financial, Registration documents
+export const groupDocumentsAPI = {
+  // Get all documents for a group (optionally filtered by type)
+  getAll: (groupId, documentType = null) => {
+    const params = documentType ? { type: documentType } : {};
+    return api.get(`/api/groups/${groupId}/documents`, { params });
+  },
+
+  // Upload documents to a group (admin/leader only)
+  upload: (groupId, files, documentType, metadata = {}) => {
+    const formData = new FormData();
+
+    // Add files
+    files.forEach(file => {
+      formData.append('files', file);
+    });
+
+    // Add required document type
+    formData.append('document_type', documentType);
+
+    // Add optional metadata
+    if (metadata.description) formData.append('description', metadata.description);
+    if (metadata.version) formData.append('version', metadata.version);
+
+    return api.post(`/api/groups/${groupId}/documents`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
+
+  // Delete a group document (admin/leader only)
+  delete: (groupId, documentId) =>
+    api.delete(`/api/groups/${groupId}/documents/${documentId}`),
+
+  // Download a group document
+  download: (groupId, documentId) =>
+    api.get(`/api/groups/${groupId}/documents/${documentId}/download`, {
+      responseType: 'blob',
+    }),
+
+  // Preview a group document
+  preview: (groupId, documentId) =>
+    api.get(`/api/groups/${groupId}/documents/${documentId}/preview`, {
+      responseType: 'blob',
+    }),
 };
 
 export default api;

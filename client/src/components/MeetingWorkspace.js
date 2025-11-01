@@ -30,7 +30,9 @@ import {
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SaveIcon from '@mui/icons-material/Save';
-import { meetingsAPI, groupsAPI } from '../services/api';
+import { meetingsAPI, groupsAPI, transactionDocumentsAPI } from '../services/api';
+import DocumentUpload from './DocumentUpload';
+import RemotePaymentsTab from './RemotePaymentsTab';
 
 const MeetingWorkspace = () => {
   const { meetingId } = useParams();
@@ -43,7 +45,7 @@ const MeetingWorkspace = () => {
   const { data: meeting, isLoading: meetingLoading } = useQuery({
     queryKey: ['meeting', meetingId],
     queryFn: async () => {
-      const response = await meetingsAPI.getById(meetingId);
+      const response = await meetingsAPI.getMeetingDetail(meetingId);
       return response.data.meeting;
     },
   });
@@ -81,9 +83,11 @@ const MeetingWorkspace = () => {
   // State for savings transactions
   const [savingsData, setSavingsData] = useState({});
   const [selectedSavingType, setSelectedSavingType] = useState('');
+  const [savingsFiles, setSavingsFiles] = useState({});
 
   // State for fines
   const [finesData, setFinesData] = useState({});
+  const [finesFiles, setFinesFiles] = useState({});
 
   // State for training
   const [trainingData, setTrainingData] = useState({
@@ -94,6 +98,7 @@ const MeetingWorkspace = () => {
   });
   const [trainingAttendance, setTrainingAttendance] = useState({});
   const [createdTrainingId, setCreatedTrainingId] = useState(null);
+  const [trainingFiles, setTrainingFiles] = useState([]);
 
   // State for voting
   const [votingData, setVotingData] = useState({
@@ -103,6 +108,7 @@ const MeetingWorkspace = () => {
   });
   const [votes, setVotes] = useState({});
   const [createdVotingId, setCreatedVotingId] = useState(null);
+  const [votingFiles, setVotingFiles] = useState([]);
 
   // Mutations
   const savingsMutation = useMutation({
@@ -184,36 +190,66 @@ const MeetingWorkspace = () => {
     }));
   };
 
-  const handleRecordSavings = (memberId) => {
+  const handleRecordSavings = async (memberId) => {
     const data = savingsData[memberId];
+    const files = savingsFiles[memberId] || [];
+
     if (!selectedSavingType || (!data?.deposit && !data?.withdrawal)) {
       setSnackbar({ open: true, message: 'Please select saving type and enter amount', severity: 'warning' });
       return;
     }
 
-    if (data.deposit) {
-      savingsMutation.mutate({
-        member_id: memberId,
-        saving_type_id: selectedSavingType,
-        transaction_type: 'DEPOSIT',
-        amount: parseFloat(data.deposit),
+    try {
+      let transactionId = null;
+
+      if (data.deposit) {
+        const response = await meetingsAPI.recordSavings(meetingId, {
+          member_id: memberId,
+          saving_type_id: selectedSavingType,
+          transaction_type: 'DEPOSIT',
+          amount: parseFloat(data.deposit),
+        });
+        transactionId = response.data.data.transactions[0].id;
+      }
+
+      if (data.withdrawal) {
+        const response = await meetingsAPI.recordSavings(meetingId, {
+          member_id: memberId,
+          saving_type_id: selectedSavingType,
+          transaction_type: 'WITHDRAWAL',
+          amount: parseFloat(data.withdrawal),
+        });
+        transactionId = response.data.data.transactions[0].id;
+      }
+
+      // Upload documents if any
+      if (files.length > 0 && transactionId) {
+        await transactionDocumentsAPI.uploadDocuments('savings', transactionId, files, {
+          document_type: 'RECEIPT',
+          document_category: 'FINANCIAL',
+          description: 'Savings transaction proof',
+        });
+      }
+
+      setSnackbar({ open: true, message: 'Savings transaction recorded successfully', severity: 'success' });
+      queryClient.invalidateQueries(['meeting', meetingId]);
+
+      // Clear the row
+      setSavingsData(prev => ({
+        ...prev,
+        [memberId]: {},
+      }));
+      setSavingsFiles(prev => ({
+        ...prev,
+        [memberId]: [],
+      }));
+    } catch (error) {
+      setSnackbar({
+        open: true,
+        message: error.response?.data?.message || 'Failed to record savings',
+        severity: 'error'
       });
     }
-
-    if (data.withdrawal) {
-      savingsMutation.mutate({
-        member_id: memberId,
-        saving_type_id: selectedSavingType,
-        transaction_type: 'WITHDRAWAL',
-        amount: parseFloat(data.withdrawal),
-      });
-    }
-
-    // Clear the row
-    setSavingsData(prev => ({
-      ...prev,
-      [memberId]: {},
-    }));
   };
 
   const handleFinesChange = (memberId, field, value) => {
@@ -226,34 +262,84 @@ const MeetingWorkspace = () => {
     }));
   };
 
-  const handleRecordFine = (memberId) => {
+  const handleRecordFine = async (memberId) => {
     const data = finesData[memberId];
+    const files = finesFiles[memberId] || [];
+
     if (!data?.amount || !data?.fine_type) {
       setSnackbar({ open: true, message: 'Please enter fine type and amount', severity: 'warning' });
       return;
     }
 
-    finesMutation.mutate({
-      member_id: memberId,
-      fine_type: data.fine_type,
-      amount: parseFloat(data.amount),
-      reason: data.reason || '',
-    });
+    try {
+      const response = await meetingsAPI.recordFines(meetingId, {
+        member_id: memberId,
+        fine_type: data.fine_type,
+        amount: parseFloat(data.amount),
+        reason: data.reason || '',
+      });
 
-    // Clear the row
-    setFinesData(prev => ({
-      ...prev,
-      [memberId]: {},
-    }));
+      const fineId = response.data.data.fines[0].id;
+
+      // Upload documents if any
+      if (files.length > 0 && fineId) {
+        await transactionDocumentsAPI.uploadDocuments('fine', fineId, files, {
+          document_type: 'RECEIPT',
+          document_category: 'FINANCIAL',
+          description: 'Fine payment proof',
+        });
+      }
+
+      setSnackbar({ open: true, message: 'Fine recorded successfully', severity: 'success' });
+      queryClient.invalidateQueries(['meeting', meetingId]);
+
+      // Clear the row
+      setFinesData(prev => ({
+        ...prev,
+        [memberId]: {},
+      }));
+      setFinesFiles(prev => ({
+        ...prev,
+        [memberId]: [],
+      }));
+    } catch (error) {
+      setSnackbar({
+        open: true,
+        message: error.response?.data?.message || 'Failed to record fine',
+        severity: 'error'
+      });
+    }
   };
 
-  const handleCreateTraining = () => {
+  const handleCreateTraining = async () => {
     if (!trainingData.training_topic) {
       setSnackbar({ open: true, message: 'Please enter training topic', severity: 'warning' });
       return;
     }
 
-    trainingMutation.mutate(trainingData);
+    try {
+      const response = await meetingsAPI.createTraining(meetingId, trainingData);
+      const trainingId = response.data.data.training_id;
+      setCreatedTrainingId(trainingId);
+
+      // Upload documents if any
+      if (trainingFiles.length > 0 && trainingId) {
+        await transactionDocumentsAPI.uploadDocuments('training', trainingId, trainingFiles, {
+          document_type: 'REPORT',
+          document_category: 'TRAINING',
+          description: 'Training session materials',
+        });
+      }
+
+      setSnackbar({ open: true, message: 'Training session created successfully', severity: 'success' });
+      setTrainingFiles([]);
+    } catch (error) {
+      setSnackbar({
+        open: true,
+        message: error.response?.data?.message || 'Failed to create training',
+        severity: 'error'
+      });
+    }
   };
 
   const handleTrainingAttendanceChange = (memberId, attended) => {
@@ -280,13 +366,35 @@ const MeetingWorkspace = () => {
     });
   };
 
-  const handleCreateVoting = () => {
+  const handleCreateVoting = async () => {
     if (!votingData.vote_topic) {
       setSnackbar({ open: true, message: 'Please enter voting topic', severity: 'warning' });
       return;
     }
 
-    votingMutation.mutate(votingData);
+    try {
+      const response = await meetingsAPI.createVoting(meetingId, votingData);
+      const votingId = response.data.data.voting_id;
+      setCreatedVotingId(votingId);
+
+      // Upload documents if any
+      if (votingFiles.length > 0 && votingId) {
+        await transactionDocumentsAPI.uploadDocuments('voting', votingId, votingFiles, {
+          document_type: 'REPORT',
+          document_category: 'VOTING',
+          description: 'Voting session documentation',
+        });
+      }
+
+      setSnackbar({ open: true, message: 'Voting session created successfully', severity: 'success' });
+      setVotingFiles([]);
+    } catch (error) {
+      setSnackbar({
+        open: true,
+        message: error.response?.data?.message || 'Failed to create voting',
+        severity: 'error'
+      });
+    }
   };
 
   const handleVoteChange = (memberId, vote) => {
@@ -367,6 +475,7 @@ const MeetingWorkspace = () => {
             <Tab label="Fines" />
             <Tab label="Training" />
             <Tab label="Voting" />
+            <Tab label="📱 Remote Payments" />
           </Tabs>
 
           {/* Savings Tab */}
@@ -395,6 +504,7 @@ const MeetingWorkspace = () => {
                         <TableCell>Member</TableCell>
                         <TableCell>Deposit ({currency})</TableCell>
                         <TableCell>Withdrawal ({currency})</TableCell>
+                        <TableCell>Documents</TableCell>
                         <TableCell>Actions</TableCell>
                       </TableRow>
                     </TableHead>
@@ -420,6 +530,19 @@ const MeetingWorkspace = () => {
                               value={savingsData[member.id]?.withdrawal || ''}
                               onChange={(e) => handleSavingsChange(member.id, 'withdrawal', e.target.value)}
                               inputProps={{ min: 0, step: 100 }}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <DocumentUpload
+                              onFilesSelected={(files) => {
+                                setSavingsFiles(prev => ({
+                                  ...prev,
+                                  [member.id]: files,
+                                }));
+                              }}
+                              maxFiles={3}
+                              maxFileSize={10 * 1024 * 1024}
+                              showPreview={false}
                             />
                           </TableCell>
                           <TableCell>
@@ -453,6 +576,7 @@ const MeetingWorkspace = () => {
                       <TableCell>Fine Type</TableCell>
                       <TableCell>Amount ({currency})</TableCell>
                       <TableCell>Reason</TableCell>
+                      <TableCell>Documents</TableCell>
                       <TableCell>Actions</TableCell>
                     </TableRow>
                   </TableHead>
@@ -492,6 +616,19 @@ const MeetingWorkspace = () => {
                             value={finesData[member.id]?.reason || ''}
                             onChange={(e) => handleFinesChange(member.id, 'reason', e.target.value)}
                             placeholder="Optional"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <DocumentUpload
+                            onFilesSelected={(files) => {
+                              setFinesFiles(prev => ({
+                                ...prev,
+                                [member.id]: files,
+                              }));
+                            }}
+                            maxFiles={3}
+                            maxFileSize={10 * 1024 * 1024}
+                            showPreview={false}
                           />
                         </TableCell>
                         <TableCell>
@@ -553,6 +690,17 @@ const MeetingWorkspace = () => {
                     label="Description"
                     value={trainingData.training_description}
                     onChange={(e) => setTrainingData({ ...trainingData, training_description: e.target.value })}
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" gutterBottom>
+                    Training Materials (Optional)
+                  </Typography>
+                  <DocumentUpload
+                    onFilesSelected={setTrainingFiles}
+                    maxFiles={5}
+                    maxFileSize={20 * 1024 * 1024}
+                    showPreview={true}
                   />
                 </Grid>
                 <Grid item xs={12}>
@@ -651,6 +799,17 @@ const MeetingWorkspace = () => {
                   />
                 </Grid>
                 <Grid item xs={12}>
+                  <Typography variant="subtitle2" gutterBottom>
+                    Supporting Documents (Optional)
+                  </Typography>
+                  <DocumentUpload
+                    onFilesSelected={setVotingFiles}
+                    maxFiles={5}
+                    maxFileSize={20 * 1024 * 1024}
+                    showPreview={true}
+                  />
+                </Grid>
+                <Grid item xs={12}>
                   <Button
                     variant="contained"
                     onClick={handleCreateVoting}
@@ -704,6 +863,13 @@ const MeetingWorkspace = () => {
                   </Button>
                 </>
               )}
+            </Box>
+          )}
+
+          {/* Remote Payments Tab */}
+          {activeTab === 4 && (
+            <Box sx={{ mt: 3 }}>
+              <RemotePaymentsTab meetingId={meetingId} currency={currency} />
             </Box>
           )}
         </CardContent>

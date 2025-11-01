@@ -243,7 +243,7 @@ function GroupDetail() {
                       Share Value
                     </Typography>
                     <Typography variant="body1">
-                      {group.currency || 'RWF'} {parseFloat(group.share_value).toLocaleString()}
+                      {group.currency || 'UGX'} {parseFloat(group.share_value).toLocaleString()}
                     </Typography>
                   </Grid>
                 )}
@@ -406,7 +406,7 @@ function GroupDetail() {
                           </TableCell>
                           <TableCell>{member.phone_number || 'N/A'}</TableCell>
                           <TableCell align="right">
-                            {group.currency || 'RWF'} {parseFloat(member.total_contributions || 0).toLocaleString()}
+                            {group.currency || 'UGX'} {parseFloat(member.total_contributions || 0).toLocaleString()}
                           </TableCell>
                           <TableCell align="right">
                             {parseFloat(member.attendance_percentage || 0).toFixed(1)}%
@@ -458,7 +458,7 @@ function GroupDetail() {
                   Total Savings
                 </Typography>
                 <Typography variant="h5" color="success.main">
-                  {group.currency || 'RWF'} {parseFloat(financialSummary.total_savings || 0).toLocaleString()}
+                  {group.currency || 'UGX'} {parseFloat(financialSummary.total_savings || 0).toLocaleString()}
                 </Typography>
               </Box>
               <Box sx={{ mt: 2 }}>
@@ -466,7 +466,7 @@ function GroupDetail() {
                   Total Loans
                 </Typography>
                 <Typography variant="h6">
-                  {group.currency || 'RWF'} {parseFloat(financialSummary.total_loans || 0).toLocaleString()}
+                  {group.currency || 'UGX'} {parseFloat(financialSummary.total_loans || 0).toLocaleString()}
                 </Typography>
               </Box>
               <Box sx={{ mt: 2 }}>

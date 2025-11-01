@@ -103,11 +103,11 @@ function GroupsList() {
                       <strong>Members:</strong> {group.total_members || 0}{group.max_members ? ` / ${group.max_members}` : ''}
                     </Typography>
                     <Typography variant="body2">
-                      <strong>Total Savings:</strong> {group.currency || 'RWF'} {parseFloat(group.total_savings || 0).toLocaleString()}
+                      <strong>Total Savings:</strong> {group.currency || 'UGX'} {parseFloat(group.total_savings || 0).toLocaleString()}
                     </Typography>
                     {group.share_value && (
                       <Typography variant="body2">
-                        <strong>Share Value:</strong> {group.currency || 'RWF'} {parseFloat(group.share_value || 0).toLocaleString()}
+                        <strong>Share Value:</strong> {group.currency || 'UGX'} {parseFloat(group.share_value || 0).toLocaleString()}
                       </Typography>
                     )}
                   </Box>

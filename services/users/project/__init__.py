@@ -37,6 +37,9 @@ def create_app(script_info=None):
     from project.api.meetings import meetings_blueprint
     from project.api.documents import documents_blueprint
     from project.api.documents_enhanced import documents_enhanced_blueprint
+    from project.api.transaction_documents import transaction_documents_blueprint
+    from project.api.group_documents import group_documents_blueprint
+    from project.api.remote_payments import remote_payments_blueprint
     from project.api.ping import ping_blueprint
 
     app.register_blueprint(auth_blueprint, url_prefix='/api/auth')
@@ -48,6 +51,9 @@ def create_app(script_info=None):
     app.register_blueprint(meetings_blueprint, url_prefix='/api')
     app.register_blueprint(documents_blueprint, url_prefix='/api')
     app.register_blueprint(documents_enhanced_blueprint, url_prefix='/api')
+    app.register_blueprint(transaction_documents_blueprint, url_prefix='/api/transaction-documents')
+    app.register_blueprint(group_documents_blueprint, url_prefix='/api')
+    app.register_blueprint(remote_payments_blueprint, url_prefix='/api')
     app.register_blueprint(ping_blueprint)
     
     # Shell context for flask cli

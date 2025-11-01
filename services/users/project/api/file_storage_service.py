@@ -16,6 +16,25 @@ import PyPDF2
 from werkzeug.utils import secure_filename
 from flask import current_app
 
+# Optional imports for advanced features
+try:
+    from pdf2image import convert_from_path
+    PDF2IMAGE_AVAILABLE = True
+except ImportError:
+    PDF2IMAGE_AVAILABLE = False
+
+try:
+    from moviepy.editor import VideoFileClip
+    MOVIEPY_AVAILABLE = True
+except ImportError:
+    MOVIEPY_AVAILABLE = False
+
+try:
+    import magic
+    MAGIC_AVAILABLE = True
+except ImportError:
+    MAGIC_AVAILABLE = False
+
 
 class FileStorageService:
     """
@@ -115,8 +134,26 @@ class FileStorageService:
         return 'other'
     
     @staticmethod
-    def get_mime_type(filename: str) -> str:
-        """Get MIME type for file."""
+    def get_mime_type(filename: str, file_path: str = None) -> str:
+        """
+        Get MIME type from filename extension or file content.
+
+        Args:
+            filename: Name of the file
+            file_path: Optional path to file for content-based detection
+
+        Returns:
+            MIME type string
+        """
+        # Try content-based detection first if file path provided
+        if file_path and MAGIC_AVAILABLE and os.path.exists(file_path):
+            try:
+                mime = magic.Magic(mime=True)
+                return mime.from_file(file_path)
+            except Exception:
+                pass
+
+        # Fall back to extension-based detection
         ext = FileStorageService.get_file_extension(filename)
         return FileStorageService.MIME_TYPES.get(ext, 'application/octet-stream')
     
@@ -278,26 +315,87 @@ class FileStorageService:
         Returns:
             Path to preview image or None if generation failed
         """
-        try:
-            # This is a placeholder - full implementation would require pdf2image
-            # For now, we'll just return None and handle it gracefully
-            # In production, you'd use: from pdf2image import convert_from_path
+        if not PDF2IMAGE_AVAILABLE:
+            current_app.logger.warning("pdf2image not available, skipping PDF preview generation")
+            return None
 
+        try:
             preview_dir = os.path.join(self.base_upload_folder, 'previews')
             os.makedirs(preview_dir, exist_ok=True)
 
-            # Placeholder: In production, use pdf2image
-            # images = convert_from_path(pdf_path, first_page=page_number+1, last_page=page_number+1, dpi=self.PDF_PREVIEW_DPI)
-            # if images:
-            #     preview_filename = f"preview_{os.path.basename(pdf_path)}.jpg"
-            #     preview_path = os.path.join(preview_dir, preview_filename)
-            #     images[0].save(preview_path, 'JPEG', quality=85)
-            #     return preview_path
+            # Convert PDF page to image
+            images = convert_from_path(
+                pdf_path,
+                first_page=page_number + 1,
+                last_page=page_number + 1,
+                dpi=self.PDF_PREVIEW_DPI
+            )
+
+            if images:
+                # Save preview image
+                filename = os.path.basename(pdf_path)
+                preview_filename = f"preview_{os.path.splitext(filename)[0]}.jpg"
+                preview_path = os.path.join(preview_dir, preview_filename)
+
+                # Resize to preview size
+                img = images[0]
+                img.thumbnail(self.PREVIEW_SIZE, Image.Resampling.LANCZOS)
+                img.save(preview_path, 'JPEG', quality=85, optimize=True)
+
+                current_app.logger.info(f"Generated PDF preview: {preview_path}")
+                return preview_path
 
             return None
 
         except Exception as e:
             current_app.logger.error(f"Failed to generate PDF preview for {pdf_path}: {str(e)}")
+            return None
+
+    def generate_video_thumbnail(self, video_path: str, time_offset: float = 1.0) -> Optional[str]:
+        """
+        Generate thumbnail from video file.
+
+        Args:
+            video_path: Path to video file
+            time_offset: Time offset in seconds to capture frame (default: 1.0)
+
+        Returns:
+            Path to thumbnail image or None if generation failed
+        """
+        if not MOVIEPY_AVAILABLE:
+            current_app.logger.warning("moviepy not available, skipping video thumbnail generation")
+            return None
+
+        try:
+            thumbnail_dir = os.path.join(self.base_upload_folder, 'thumbnails')
+            os.makedirs(thumbnail_dir, exist_ok=True)
+
+            # Load video and extract frame
+            with VideoFileClip(video_path) as video:
+                # Use time_offset or 10% of video duration, whichever is smaller
+                capture_time = min(time_offset, video.duration * 0.1)
+
+                # Extract frame
+                frame = video.get_frame(capture_time)
+
+                # Convert to PIL Image
+                img = Image.fromarray(frame)
+
+                # Generate thumbnail
+                img.thumbnail(self.THUMBNAIL_SIZE, Image.Resampling.LANCZOS)
+
+                # Save thumbnail
+                filename = os.path.basename(video_path)
+                thumbnail_filename = f"thumb_{os.path.splitext(filename)[0]}.jpg"
+                thumbnail_path = os.path.join(thumbnail_dir, thumbnail_filename)
+
+                img.save(thumbnail_path, 'JPEG', quality=85, optimize=True)
+
+                current_app.logger.info(f"Generated video thumbnail: {thumbnail_path}")
+                return thumbnail_path
+
+        except Exception as e:
+            current_app.logger.error(f"Failed to generate video thumbnail for {video_path}: {str(e)}")
             return None
 
     def extract_file_metadata(self, file_path: str) -> Dict:
@@ -396,12 +494,23 @@ class FileStorageService:
             # Decompress temporarily if needed for preview generation
             temp_path = file_path
             if is_compressed:
-                temp_path = self.decompress_file(file_path, os.path.join(self.base_upload_folder, 'temp', unique_filename))
+                temp_dir = os.path.join(self.base_upload_folder, 'temp')
+                os.makedirs(temp_dir, exist_ok=True)
+                temp_path = self.decompress_file(file_path, os.path.join(temp_dir, unique_filename))
 
+            # Generate previews based on file type
             if ext in self.ALLOWED_EXTENSIONS['images']:
+                # Images: generate thumbnail
                 thumbnail_path = self.generate_image_thumbnail(temp_path)
             elif ext == 'pdf':
+                # PDFs: generate preview from first page and thumbnail
                 preview_path = self.generate_pdf_preview(temp_path)
+                if preview_path:
+                    # Also generate thumbnail from preview
+                    thumbnail_path = self.generate_image_thumbnail(preview_path)
+            elif ext in self.ALLOWED_EXTENSIONS['videos']:
+                # Videos: generate thumbnail from frame
+                thumbnail_path = self.generate_video_thumbnail(temp_path)
 
             # Clean up temp file
             if is_compressed and temp_path != file_path and os.path.exists(temp_path):

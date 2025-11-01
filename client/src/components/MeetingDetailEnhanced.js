@@ -30,6 +30,10 @@ import {
   TextField,
   Breadcrumbs,
   Link,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
@@ -39,14 +43,19 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import PeopleIcon from '@mui/icons-material/People';
 import WorkIcon from '@mui/icons-material/Work';
 import HomeIcon from '@mui/icons-material/Home';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
+import AttachFileIcon from '@mui/icons-material/AttachFile';
 import { meetingsAPI, groupsAPI } from '../services/api';
 import RecordAttendanceDialog from './RecordAttendanceDialog';
 import DocumentManager from './DocumentManager';
+import DocumentList from './DocumentList';
 import EditSavingsTransactionDialog from './EditSavingsTransactionDialog';
 import EditFineDialog from './EditFineDialog';
 import EditLoanRepaymentDialog from './EditLoanRepaymentDialog';
 import EditTrainingDialog from './EditTrainingDialog';
 import EditVotingDialog from './EditVotingDialog';
+import RemotePaymentDialog from './RemotePaymentDialog';
 
 function TabPanel({ children, value, index }) {
   return (
@@ -71,6 +80,20 @@ function MeetingDetailEnhanced() {
   const [editLoanDialog, setEditLoanDialog] = useState({ open: false, repayment: null });
   const [editTrainingDialog, setEditTrainingDialog] = useState({ open: false, training: null });
   const [editVotingDialog, setEditVotingDialog] = useState({ open: false, voting: null });
+
+  // Remote payment dialog
+  const [remotePaymentDialogOpen, setRemotePaymentDialogOpen] = useState(false);
+
+  // Expanded rows for documents
+  const [expandedRows, setExpandedRows] = useState({});
+
+  const toggleRow = (type, id) => {
+    const key = `${type}-${id}`;
+    setExpandedRows(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  };
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['meeting', meetingId],
@@ -148,6 +171,9 @@ function MeetingDetailEnhanced() {
       minutes: meeting.minutes,
       decisions_made: meeting.decisions_made,
       action_items: meeting.action_items,
+      members_present: meeting.members_present || 0,
+      total_members: meeting.total_members || 0,
+      quorum_met: meeting.quorum_met || false,
     });
     setEditDialogOpen(true);
   };
@@ -187,6 +213,16 @@ function MeetingDetailEnhanced() {
   const trainings = data?.trainings || [];
   const votings = data?.votings || [];
   const summary = data?.summary || {};
+
+  // Calculate remote payment statistics
+  const remotePayments = savingsTransactions.filter(t => t.is_mobile_money);
+  const pendingRemotePayments = remotePayments.filter(t => t.verification_status === 'PENDING');
+  const verifiedRemotePayments = remotePayments.filter(t => t.verification_status === 'VERIFIED');
+  const rejectedRemotePayments = remotePayments.filter(t => t.verification_status === 'REJECTED');
+
+  const totalPendingAmount = pendingRemotePayments.reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
+  const totalVerifiedRemoteAmount = verifiedRemotePayments.reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
+  const totalRejectedAmount = rejectedRemotePayments.reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
   const group = groupData;
   const currency = groupData?.currency || 'UGX';
 
@@ -274,6 +310,16 @@ function MeetingDetailEnhanced() {
             color={getStatusColor(meeting.status)}
             size="small"
           />
+          {pendingRemotePayments.length > 0 && (
+            <Tooltip title={`${pendingRemotePayments.length} remote payment${pendingRemotePayments.length > 1 ? 's' : ''} pending verification`}>
+              <Chip
+                label={`⏳ ${pendingRemotePayments.length} Pending`}
+                color="warning"
+                size="small"
+                sx={{ fontWeight: 'bold' }}
+              />
+            </Tooltip>
+          )}
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           {meeting.status === 'SCHEDULED' && (
@@ -314,6 +360,16 @@ function MeetingDetailEnhanced() {
                 Complete Meeting
               </Button>
             </>
+          )}
+          {(meeting.status === 'SCHEDULED' || meeting.status === 'IN_PROGRESS') && (
+            <Button
+              variant="contained"
+              color="secondary"
+              onClick={() => setRemotePaymentDialogOpen(true)}
+              sx={{ bgcolor: '#1976d2' }}
+            >
+              📱 Submit Remote Payment
+            </Button>
           )}
           <Button
             variant="outlined"
@@ -416,6 +472,97 @@ function MeetingDetailEnhanced() {
           </Grid>
         </CardContent>
       </Card>
+
+      {/* Remote Payments Summary - Show if there are any remote payments */}
+      {remotePayments.length > 0 && (
+        <Card sx={{ mb: 3, bgcolor: '#f5f5f5' }}>
+          <CardContent>
+            <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              📱 Remote Payments Summary
+            </Typography>
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={3}>
+                <Card sx={{ bgcolor: '#fff3e0', border: '2px solid #ff9800' }}>
+                  <CardContent>
+                    <Typography variant="body2" color="text.secondary">
+                      ⏳ Pending Verification
+                    </Typography>
+                    <Typography variant="h6" color="warning.main">
+                      {pendingRemotePayments.length}
+                    </Typography>
+                    <Typography variant="body2" color="warning.main">
+                      {formatCurrency(totalPendingAmount)}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      (Not counted in totals)
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <Card sx={{ bgcolor: '#e8f5e9' }}>
+                  <CardContent>
+                    <Typography variant="body2" color="text.secondary">
+                      ✅ Verified
+                    </Typography>
+                    <Typography variant="h6" color="success.main">
+                      {verifiedRemotePayments.length}
+                    </Typography>
+                    <Typography variant="body2" color="success.main">
+                      {formatCurrency(totalVerifiedRemoteAmount)}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      (Counted in totals)
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <Card sx={{ bgcolor: '#ffebee' }}>
+                  <CardContent>
+                    <Typography variant="body2" color="text.secondary">
+                      ❌ Rejected
+                    </Typography>
+                    <Typography variant="h6" color="error.main">
+                      {rejectedRemotePayments.length}
+                    </Typography>
+                    <Typography variant="body2" color="error.main">
+                      {formatCurrency(totalRejectedAmount)}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      (Not counted in totals)
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <Card sx={{ bgcolor: '#e3f2fd' }}>
+                  <CardContent>
+                    <Typography variant="body2" color="text.secondary">
+                      📊 Total Remote
+                    </Typography>
+                    <Typography variant="h6" color="primary.main">
+                      {remotePayments.length}
+                    </Typography>
+                    <Typography variant="body2" color="primary.main">
+                      {formatCurrency(totalVerifiedRemoteAmount + totalPendingAmount + totalRejectedAmount)}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      (All submissions)
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+            </Grid>
+            {pendingRemotePayments.length > 0 && (
+              <Alert severity="warning" sx={{ mt: 2 }}>
+                <strong>{pendingRemotePayments.length} remote payment{pendingRemotePayments.length > 1 ? 's' : ''} pending verification.</strong>
+                {' '}Officers/Admins can verify these in the Meeting Workspace → 📱 Remote Payments tab.
+              </Alert>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Meeting Summary Card - Only show if completed */}
       {meeting.status === 'COMPLETED' && summary && (
@@ -558,6 +705,7 @@ function MeetingDetailEnhanced() {
                   <TableRow>
                     <TableCell>Member Name</TableCell>
                     <TableCell>Saving Type</TableCell>
+                    <TableCell>Payment Method</TableCell>
                     <TableCell>Type</TableCell>
                     <TableCell align="right">Amount</TableCell>
                     <TableCell>Date</TableCell>
@@ -568,43 +716,107 @@ function MeetingDetailEnhanced() {
                 <TableBody>
                   {savingsTransactions.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} align="center">
+                      <TableCell colSpan={8} align="center">
                         No savings transactions recorded
                       </TableCell>
                     </TableRow>
                   ) : (
-                    savingsTransactions.map((transaction) => (
-                      <TableRow key={transaction.id}>
-                        <TableCell>{transaction.member_name}</TableCell>
-                        <TableCell>{transaction.saving_type_name}</TableCell>
-                        <TableCell>
-                          <Chip
-                            label={transaction.transaction_type}
-                            color={transaction.transaction_type === 'DEPOSIT' ? 'success' : 'warning'}
-                            size="small"
-                          />
-                        </TableCell>
-                        <TableCell align="right">{formatCurrency(transaction.amount)}</TableCell>
-                        <TableCell>{formatDate(transaction.transaction_date)}</TableCell>
-                        <TableCell>
-                          <Chip
-                            label={transaction.verification_status}
-                            color={transaction.verification_status === 'VERIFIED' ? 'success' : 'default'}
-                            size="small"
-                          />
-                        </TableCell>
-                        <TableCell align="center">
-                          <Tooltip title="Edit Transaction">
-                            <IconButton
+                    savingsTransactions.map((transaction) => {
+                      const isRemote = transaction.is_mobile_money;
+                      const isPending = transaction.verification_status === 'PENDING';
+                      const isVerified = transaction.verification_status === 'VERIFIED';
+                      const isRejected = transaction.verification_status === 'REJECTED';
+
+                      return (
+                        <TableRow
+                          key={transaction.id}
+                          sx={{
+                            bgcolor: isPending ? '#fff3e0' : isRejected ? '#ffebee' : 'inherit',
+                            opacity: isRejected ? 0.7 : 1
+                          }}
+                        >
+                          <TableCell>{transaction.member_name}</TableCell>
+                          <TableCell>{transaction.saving_type_name}</TableCell>
+                          <TableCell>
+                            <Box display="flex" gap={0.5} alignItems="center">
+                              <Chip
+                                label={isRemote ? '📱 Remote' : '💵 Physical'}
+                                color={isRemote ? 'secondary' : 'default'}
+                                size="small"
+                                variant={isRemote ? 'filled' : 'outlined'}
+                              />
+                              {isRemote && transaction.mobile_money_reference && (
+                                <Tooltip title={`Transaction ID: ${transaction.mobile_money_reference}\nPhone: ${transaction.mobile_money_phone || 'N/A'}`}>
+                                  <Chip
+                                    label="ℹ️"
+                                    size="small"
+                                    variant="outlined"
+                                    sx={{ cursor: 'help', minWidth: '32px' }}
+                                  />
+                                </Tooltip>
+                              )}
+                            </Box>
+                          </TableCell>
+                          <TableCell>
+                            <Chip
+                              label={transaction.transaction_type}
+                              color={transaction.transaction_type === 'DEPOSIT' ? 'success' : 'warning'}
                               size="small"
-                              onClick={() => setEditSavingsDialog({ open: true, transaction })}
-                            >
-                              <EditIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        </TableCell>
-                      </TableRow>
-                    ))
+                            />
+                          </TableCell>
+                          <TableCell align="right">
+                            <Box>
+                              <Typography variant="body2" sx={{ fontWeight: isPending ? 'normal' : 'bold' }}>
+                                {formatCurrency(transaction.amount)}
+                              </Typography>
+                              {isPending && (
+                                <Typography variant="caption" color="warning.main">
+                                  (Not counted)
+                                </Typography>
+                              )}
+                            </Box>
+                          </TableCell>
+                          <TableCell>{formatDate(transaction.transaction_date)}</TableCell>
+                          <TableCell>
+                            <Chip
+                              label={
+                                isPending ? '⏳ PENDING' :
+                                isVerified ? '✅ VERIFIED' :
+                                isRejected ? '❌ REJECTED' :
+                                transaction.verification_status
+                              }
+                              color={
+                                isPending ? 'warning' :
+                                isVerified ? 'success' :
+                                isRejected ? 'error' :
+                                'default'
+                              }
+                              size="small"
+                            />
+                            {transaction.notes && (
+                              <Tooltip title={transaction.notes}>
+                                <Chip
+                                  label="📝"
+                                  size="small"
+                                  variant="outlined"
+                                  sx={{ ml: 0.5, cursor: 'help', minWidth: '32px' }}
+                                />
+                              </Tooltip>
+                            )}
+                          </TableCell>
+                          <TableCell align="center">
+                            <Tooltip title="Edit Transaction">
+                              <IconButton
+                                size="small"
+                                onClick={() => setEditSavingsDialog({ open: true, transaction })}
+                              >
+                                <EditIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
                   )}
                 </TableBody>
               </Table>
@@ -617,6 +829,7 @@ function MeetingDetailEnhanced() {
               <Table>
                 <TableHead>
                   <TableRow>
+                    <TableCell width="40px"></TableCell>
                     <TableCell>Member Name</TableCell>
                     <TableCell>Fine Type</TableCell>
                     <TableCell>Reason</TableCell>
@@ -629,37 +842,82 @@ function MeetingDetailEnhanced() {
                 <TableBody>
                   {fines.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} align="center">
+                      <TableCell colSpan={8} align="center">
                         No fines recorded
                       </TableCell>
                     </TableRow>
                   ) : (
-                    fines.map((fine) => (
-                      <TableRow key={fine.id}>
-                        <TableCell>{fine.member_name}</TableCell>
-                        <TableCell>{fine.fine_type}</TableCell>
-                        <TableCell>{fine.reason}</TableCell>
-                        <TableCell align="right">{formatCurrency(fine.amount)}</TableCell>
-                        <TableCell align="right">{formatCurrency(fine.paid_amount)}</TableCell>
-                        <TableCell>
-                          <Chip
-                            label={fine.is_paid ? 'Paid' : 'Unpaid'}
-                            color={fine.is_paid ? 'success' : 'error'}
-                            size="small"
-                          />
-                        </TableCell>
-                        <TableCell align="center">
-                          <Tooltip title="Edit Fine">
-                            <IconButton
-                              size="small"
-                              onClick={() => setEditFineDialog({ open: true, fine })}
-                            >
-                              <EditIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        </TableCell>
-                      </TableRow>
-                    ))
+                    fines.map((fine) => {
+                      const hasDocuments = fine.documents && fine.documents.length > 0;
+                      const isExpanded = expandedRows[`fine-${fine.id}`];
+
+                      return (
+                        <React.Fragment key={fine.id}>
+                          <TableRow>
+                            <TableCell>
+                              {hasDocuments && (
+                                <IconButton
+                                  size="small"
+                                  onClick={() => toggleRow('fine', fine.id)}
+                                >
+                                  {isExpanded ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
+                                </IconButton>
+                              )}
+                              {hasDocuments && (
+                                <Chip
+                                  icon={<AttachFileIcon />}
+                                  label={fine.documents.length}
+                                  size="small"
+                                  color="primary"
+                                  variant="outlined"
+                                  sx={{ ml: 0.5 }}
+                                />
+                              )}
+                            </TableCell>
+                            <TableCell>{fine.member_name}</TableCell>
+                            <TableCell>{fine.fine_type}</TableCell>
+                            <TableCell>{fine.reason}</TableCell>
+                            <TableCell align="right">{formatCurrency(fine.amount)}</TableCell>
+                            <TableCell align="right">{formatCurrency(fine.paid_amount)}</TableCell>
+                            <TableCell>
+                              <Chip
+                                label={fine.is_paid ? 'Paid' : 'Unpaid'}
+                                color={fine.is_paid ? 'success' : 'error'}
+                                size="small"
+                              />
+                            </TableCell>
+                            <TableCell align="center">
+                              <Tooltip title="Edit Fine">
+                                <IconButton
+                                  size="small"
+                                  onClick={() => setEditFineDialog({ open: true, fine })}
+                                >
+                                  <EditIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            </TableCell>
+                          </TableRow>
+                          {hasDocuments && isExpanded && (
+                            <TableRow>
+                              <TableCell colSpan={8} sx={{ py: 0, backgroundColor: '#f5f5f5' }}>
+                                <Box sx={{ py: 2 }}>
+                                  <Typography variant="subtitle2" gutterBottom>
+                                    Attached Documents
+                                  </Typography>
+                                  <DocumentList
+                                    documents={fine.documents}
+                                    onDocumentDeleted={() => {
+                                      queryClient.invalidateQueries(['meeting', meetingId]);
+                                    }}
+                                    compact
+                                  />
+                                </Box>
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </React.Fragment>
+                      );
+                    })
                   )}
                 </TableBody>
               </Table>
@@ -721,6 +979,7 @@ function MeetingDetailEnhanced() {
               <Table>
                 <TableHead>
                   <TableRow>
+                    <TableCell width="40px"></TableCell>
                     <TableCell>Topic</TableCell>
                     <TableCell>Description</TableCell>
                     <TableCell>Trainer</TableCell>
@@ -732,30 +991,75 @@ function MeetingDetailEnhanced() {
                 <TableBody>
                   {trainings.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} align="center">
+                      <TableCell colSpan={7} align="center">
                         No training sessions recorded
                       </TableCell>
                     </TableRow>
                   ) : (
-                    trainings.map((training) => (
-                      <TableRow key={training.id}>
-                        <TableCell>{training.training_topic}</TableCell>
-                        <TableCell>{training.training_description || '-'}</TableCell>
-                        <TableCell>{training.trainer_name || '-'}</TableCell>
-                        <TableCell>{training.duration_minutes || '-'}</TableCell>
-                        <TableCell>{training.total_attendees || 0}</TableCell>
-                        <TableCell align="center">
-                          <Tooltip title="Edit Training">
-                            <IconButton
-                              size="small"
-                              onClick={() => setEditTrainingDialog({ open: true, training })}
-                            >
-                              <EditIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        </TableCell>
-                      </TableRow>
-                    ))
+                    trainings.map((training) => {
+                      const hasDocuments = training.documents && training.documents.length > 0;
+                      const isExpanded = expandedRows[`training-${training.id}`];
+
+                      return (
+                        <React.Fragment key={training.id}>
+                          <TableRow>
+                            <TableCell>
+                              {hasDocuments && (
+                                <IconButton
+                                  size="small"
+                                  onClick={() => toggleRow('training', training.id)}
+                                >
+                                  {isExpanded ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
+                                </IconButton>
+                              )}
+                              {hasDocuments && (
+                                <Chip
+                                  icon={<AttachFileIcon />}
+                                  label={training.documents.length}
+                                  size="small"
+                                  color="primary"
+                                  variant="outlined"
+                                  sx={{ ml: 0.5 }}
+                                />
+                              )}
+                            </TableCell>
+                            <TableCell>{training.training_topic}</TableCell>
+                            <TableCell>{training.training_description || '-'}</TableCell>
+                            <TableCell>{training.trainer_name || '-'}</TableCell>
+                            <TableCell>{training.duration_minutes || '-'}</TableCell>
+                            <TableCell>{training.total_attendees || 0}</TableCell>
+                            <TableCell align="center">
+                              <Tooltip title="Edit Training">
+                                <IconButton
+                                  size="small"
+                                  onClick={() => setEditTrainingDialog({ open: true, training })}
+                                >
+                                  <EditIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            </TableCell>
+                          </TableRow>
+                          {hasDocuments && isExpanded && (
+                            <TableRow>
+                              <TableCell colSpan={7} sx={{ py: 0, backgroundColor: '#f5f5f5' }}>
+                                <Box sx={{ py: 2 }}>
+                                  <Typography variant="subtitle2" gutterBottom>
+                                    Attached Documents
+                                  </Typography>
+                                  <DocumentList
+                                    documents={training.documents}
+                                    onDocumentDeleted={() => {
+                                      queryClient.invalidateQueries(['meeting', meetingId]);
+                                    }}
+                                    compact
+                                  />
+                                </Box>
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </React.Fragment>
+                      );
+                    })
                   )}
                 </TableBody>
               </Table>
@@ -768,6 +1072,7 @@ function MeetingDetailEnhanced() {
               <Table>
                 <TableHead>
                   <TableRow>
+                    <TableCell width="40px"></TableCell>
                     <TableCell>Topic</TableCell>
                     <TableCell>Description</TableCell>
                     <TableCell>Type</TableCell>
@@ -781,38 +1086,83 @@ function MeetingDetailEnhanced() {
                 <TableBody>
                   {votings.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} align="center">
+                      <TableCell colSpan={9} align="center">
                         No voting sessions recorded
                       </TableCell>
                     </TableRow>
                   ) : (
-                    votings.map((voting) => (
-                      <TableRow key={voting.id}>
-                        <TableCell>{voting.vote_topic}</TableCell>
-                        <TableCell>{voting.vote_description || '-'}</TableCell>
-                        <TableCell>{voting.vote_type}</TableCell>
-                        <TableCell>
-                          <Chip
-                            label={voting.result}
-                            color={voting.result === 'PASSED' ? 'success' : voting.result === 'FAILED' ? 'error' : 'default'}
-                            size="small"
-                          />
-                        </TableCell>
-                        <TableCell align="center">{voting.yes_count}</TableCell>
-                        <TableCell align="center">{voting.no_count}</TableCell>
-                        <TableCell align="center">{voting.abstain_count}</TableCell>
-                        <TableCell align="center">
-                          <Tooltip title="Edit Voting">
-                            <IconButton
-                              size="small"
-                              onClick={() => setEditVotingDialog({ open: true, voting })}
-                            >
-                              <EditIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        </TableCell>
-                      </TableRow>
-                    ))
+                    votings.map((voting) => {
+                      const hasDocuments = voting.documents && voting.documents.length > 0;
+                      const isExpanded = expandedRows[`voting-${voting.id}`];
+
+                      return (
+                        <React.Fragment key={voting.id}>
+                          <TableRow>
+                            <TableCell>
+                              {hasDocuments && (
+                                <IconButton
+                                  size="small"
+                                  onClick={() => toggleRow('voting', voting.id)}
+                                >
+                                  {isExpanded ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
+                                </IconButton>
+                              )}
+                              {hasDocuments && (
+                                <Chip
+                                  icon={<AttachFileIcon />}
+                                  label={voting.documents.length}
+                                  size="small"
+                                  color="primary"
+                                  variant="outlined"
+                                  sx={{ ml: 0.5 }}
+                                />
+                              )}
+                            </TableCell>
+                            <TableCell>{voting.vote_topic}</TableCell>
+                            <TableCell>{voting.vote_description || '-'}</TableCell>
+                            <TableCell>{voting.vote_type}</TableCell>
+                            <TableCell>
+                              <Chip
+                                label={voting.result}
+                                color={voting.result === 'PASSED' ? 'success' : voting.result === 'FAILED' ? 'error' : 'default'}
+                                size="small"
+                              />
+                            </TableCell>
+                            <TableCell align="center">{voting.yes_count}</TableCell>
+                            <TableCell align="center">{voting.no_count}</TableCell>
+                            <TableCell align="center">{voting.abstain_count}</TableCell>
+                            <TableCell align="center">
+                              <Tooltip title="Edit Voting">
+                                <IconButton
+                                  size="small"
+                                  onClick={() => setEditVotingDialog({ open: true, voting })}
+                                >
+                                  <EditIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            </TableCell>
+                          </TableRow>
+                          {hasDocuments && isExpanded && (
+                            <TableRow>
+                              <TableCell colSpan={9} sx={{ py: 0, backgroundColor: '#f5f5f5' }}>
+                                <Box sx={{ py: 2 }}>
+                                  <Typography variant="subtitle2" gutterBottom>
+                                    Attached Documents
+                                  </Typography>
+                                  <DocumentList
+                                    documents={voting.documents}
+                                    onDocumentDeleted={() => {
+                                      queryClient.invalidateQueries(['meeting', meetingId]);
+                                    }}
+                                    compact
+                                  />
+                                </Box>
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </React.Fragment>
+                      );
+                    })
                   )}
                 </TableBody>
               </Table>
@@ -848,6 +1198,40 @@ function MeetingDetailEnhanced() {
               onChange={(e) => setEditFormData({ ...editFormData, location: e.target.value })}
               fullWidth
             />
+
+            {/* Attendance Fields */}
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <TextField
+                label="Total Members"
+                type="number"
+                value={editFormData.total_members || 0}
+                onChange={(e) => setEditFormData({ ...editFormData, total_members: parseInt(e.target.value) || 0 })}
+                inputProps={{ min: 0 }}
+                fullWidth
+              />
+              <TextField
+                label="Members Present"
+                type="number"
+                value={editFormData.members_present || 0}
+                onChange={(e) => setEditFormData({ ...editFormData, members_present: parseInt(e.target.value) || 0 })}
+                inputProps={{ min: 0 }}
+                fullWidth
+              />
+            </Box>
+
+            {/* Quorum Status */}
+            <FormControl fullWidth>
+              <InputLabel>Quorum Status</InputLabel>
+              <Select
+                value={editFormData.quorum_met ? 'true' : 'false'}
+                onChange={(e) => setEditFormData({ ...editFormData, quorum_met: e.target.value === 'true' })}
+                label="Quorum Status"
+              >
+                <MenuItem value="true">Quorum Met ✓</MenuItem>
+                <MenuItem value="false">Quorum Not Met ✗</MenuItem>
+              </Select>
+            </FormControl>
+
             <TextField
               label="Agenda"
               value={editFormData.agenda || ''}
@@ -931,6 +1315,15 @@ function MeetingDetailEnhanced() {
         open={editVotingDialog.open}
         onClose={() => setEditVotingDialog({ open: false, voting: null })}
         voting={editVotingDialog.voting}
+      />
+
+      {/* Remote Payment Dialog */}
+      <RemotePaymentDialog
+        open={remotePaymentDialogOpen}
+        onClose={() => setRemotePaymentDialogOpen(false)}
+        meeting={meeting}
+        savingTypes={data?.saving_types || []}
+        groupSettings={groupData}
       />
     </Box>
   );

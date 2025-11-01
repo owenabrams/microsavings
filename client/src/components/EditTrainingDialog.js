@@ -43,7 +43,12 @@ const EditTrainingDialog = ({ open, onClose, training }) => {
 
   // Update mutation
   const updateMutation = useMutation({
-    mutationFn: (data) => transactionsAPI.updateTraining(training.id, data),
+    mutationFn: (data) => {
+      if (!training || !training.id) {
+        throw new Error('Training not found');
+      }
+      return transactionsAPI.updateTraining(training.id, data);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries(['meeting']);
       onClose();

@@ -10,7 +10,7 @@ from project.api.models import (
     MemberSaving, SavingTransaction, MemberFine, GroupLoan, LoanRepayment,
     TrainingRecord, TrainingAttendance, VotingRecord, MemberVote,
     MeetingSummary, GroupSettings, SavingType, MeetingActivity,
-    ActivityDocument, MemberActivityParticipation
+    ActivityDocument, MemberActivityParticipation, TransactionDocument
 )
 
 meetings_blueprint = Blueprint('meetings', __name__)
@@ -178,7 +178,34 @@ def get_meeting_detail(user_id, meeting_id):
 
     # Get meeting summary if exists
     summary = MeetingSummary.query.filter_by(meeting_id=meeting_id).first()
-    
+
+    # Get saving types for the group (needed for remote payment submission)
+    # Use raw SQL since group_id is not in the ORM model
+    # Include both group-specific and global (group_id IS NULL) saving types
+    from sqlalchemy import text
+    saving_types_query = text("""
+        SELECT id, name, code, description, is_mandatory, minimum_amount,
+               maximum_amount, allows_withdrawal, interest_rate
+        FROM saving_types
+        WHERE (group_id = :group_id OR group_id IS NULL) AND is_active = TRUE
+        ORDER BY name
+    """)
+    saving_types_result = db.session.execute(saving_types_query, {'group_id': meeting.group_id})
+    saving_types = [
+        {
+            'id': row[0],
+            'name': row[1],
+            'code': row[2],
+            'description': row[3],
+            'is_mandatory': row[4],
+            'minimum_amount': float(row[5]) if row[5] else None,
+            'maximum_amount': float(row[6]) if row[6] else None,
+            'allows_withdrawal': row[7],
+            'interest_rate': float(row[8]) if row[8] else 0.0
+        }
+        for row in saving_types_result
+    ]
+
     return jsonify({
         'status': 'success',
         'meeting': {
@@ -233,7 +260,14 @@ def get_meeting_detail(user_id, meeting_id):
             'transaction_date': st.transaction_date.isoformat() if st.transaction_date else None,
             'description': st.description,
             'reference_number': st.reference_number,
-            'verification_status': st.verification_status
+            'verification_status': st.verification_status,
+            'is_mobile_money': st.is_mobile_money or False,
+            'mobile_money_reference': st.mobile_money_reference,
+            'mobile_money_phone': st.mobile_money_phone,
+            'verified_by': st.verified_by,
+            'verified_date': st.verified_date.isoformat() if st.verified_date else None,
+            'notes': st.notes,
+            'documents': [doc.to_dict() for doc in TransactionDocument.get_for_entity('savings', st.id)]
         } for st in savings_transactions],
         'fines': [{
             'id': f.id,
@@ -246,7 +280,8 @@ def get_meeting_detail(user_id, meeting_id):
             'is_paid': f.is_paid,
             'paid_amount': float(f.paid_amount) if f.paid_amount else 0,
             'payment_date': f.payment_date.isoformat() if f.payment_date else None,
-            'verification_status': f.verification_status
+            'verification_status': f.verification_status,
+            'documents': [doc.to_dict() for doc in TransactionDocument.get_for_entity('fine', f.id)]
         } for f in fines],
         'loan_repayments': [{
             'id': lr.id,
@@ -258,7 +293,8 @@ def get_meeting_detail(user_id, meeting_id):
             'interest_amount': float(lr.interest_amount),
             'outstanding_balance': float(lr.outstanding_balance),
             'repayment_date': lr.repayment_date.isoformat() if lr.repayment_date else None,
-            'payment_method': lr.payment_method
+            'payment_method': lr.payment_method,
+            'documents': [doc.to_dict() for doc in TransactionDocument.get_for_entity('loan_repayment', lr.id)]
         } for lr in loan_repayments],
         'trainings': [{
             'id': t.id,
@@ -266,7 +302,8 @@ def get_meeting_detail(user_id, meeting_id):
             'training_description': t.training_description,
             'trainer_name': t.trainer_name,
             'duration_minutes': t.duration_minutes,
-            'total_attendees': t.total_attendees
+            'total_attendees': t.total_attendees,
+            'documents': [doc.to_dict() for doc in TransactionDocument.get_for_entity('training', t.id)]
         } for t in trainings],
         'votings': [{
             'id': v.id,
@@ -277,7 +314,8 @@ def get_meeting_detail(user_id, meeting_id):
             'yes_count': v.yes_count,
             'no_count': v.no_count,
             'abstain_count': v.abstain_count,
-            'absent_count': v.absent_count
+            'absent_count': v.absent_count,
+            'documents': [doc.to_dict() for doc in TransactionDocument.get_for_entity('voting', v.id)]
         } for v in votings],
         'summary': {
             'total_deposits': float(summary.total_deposits) if summary else 0,
@@ -290,7 +328,8 @@ def get_meeting_detail(user_id, meeting_id):
             'trainings_held': summary.trainings_held if summary else 0,
             'voting_sessions_held': summary.voting_sessions_held if summary else 0,
             'net_cash_flow': float(summary.net_cash_flow) if summary else 0
-        } if summary else None
+        } if summary else None,
+        'saving_types': saving_types
     }), 200
 
 
@@ -308,8 +347,16 @@ def update_meeting(user_id, meeting_id):
         # Update allowed fields
         if 'meeting_date' in post_data:
             meeting.meeting_date = datetime.datetime.strptime(post_data['meeting_date'], '%Y-%m-%d').date()
-        if 'meeting_time' in post_data:
-            meeting.meeting_time = datetime.datetime.strptime(post_data['meeting_time'], '%H:%M').time()
+        if 'meeting_time' in post_data and post_data['meeting_time']:
+            # Handle both HH:MM and HH:MM:SS formats
+            time_str = post_data['meeting_time']
+            try:
+                meeting.meeting_time = datetime.datetime.strptime(time_str, '%H:%M:%S').time()
+            except ValueError:
+                try:
+                    meeting.meeting_time = datetime.datetime.strptime(time_str, '%H:%M').time()
+                except ValueError:
+                    pass  # Skip if invalid format
         if 'meeting_type' in post_data:
             meeting.meeting_type = post_data['meeting_type']
         if 'status' in post_data:
@@ -334,7 +381,14 @@ def update_meeting(user_id, meeting_id):
             meeting.secretary_id = post_data['secretary_id']
         if 'treasurer_id' in post_data:
             meeting.treasurer_id = post_data['treasurer_id']
-        
+        if 'members_present' in post_data:
+            meeting.members_present = post_data['members_present']
+            meeting.attendance_count = post_data['members_present']
+        if 'total_members' in post_data:
+            meeting.total_members = post_data['total_members']
+        if 'quorum_met' in post_data:
+            meeting.quorum_met = post_data['quorum_met']
+
         meeting.updated_date = datetime.datetime.utcnow()
         db.session.commit()
         
@@ -441,6 +495,19 @@ def complete_meeting(user_id, meeting_id):
     if meeting.status not in ['IN_PROGRESS', 'SCHEDULED']:
         return jsonify({'status': 'error', 'message': f'Cannot complete meeting with status {meeting.status}'}), 400
 
+    # Check for pending remote payments
+    pending_payments = SavingTransaction.query.filter_by(
+        meeting_id=meeting_id,
+        is_mobile_money=True,
+        verification_status='PENDING'
+    ).count()
+
+    if pending_payments > 0:
+        return jsonify({
+            'status': 'error',
+            'message': f'Cannot complete meeting: {pending_payments} remote payment(s) pending verification. Please verify or reject all remote payments before completing the meeting.'
+        }), 400
+
     try:
         # Calculate attendance
         attendance_records = MeetingAttendance.query.filter_by(meeting_id=meeting_id).all()
@@ -448,10 +515,12 @@ def complete_meeting(user_id, meeting_id):
         members_absent = len(attendance_records) - members_present
         attendance_rate = (members_present / len(attendance_records) * 100) if attendance_records else 0
 
-        # Calculate savings
+        # Calculate savings - ONLY count VERIFIED transactions
         savings_transactions = SavingTransaction.query.filter_by(meeting_id=meeting_id).all()
-        total_deposits = sum(float(s.amount) for s in savings_transactions if s.transaction_type == 'DEPOSIT')
-        total_withdrawals = sum(float(s.amount) for s in savings_transactions if s.transaction_type == 'WITHDRAWAL')
+        # Filter for VERIFIED transactions only (excludes PENDING and REJECTED remote payments)
+        verified_transactions = [s for s in savings_transactions if s.verification_status == 'VERIFIED']
+        total_deposits = sum(float(s.amount) for s in verified_transactions if s.transaction_type == 'DEPOSIT')
+        total_withdrawals = sum(float(s.amount) for s in verified_transactions if s.transaction_type == 'WITHDRAWAL')
         net_savings = total_deposits - total_withdrawals
 
         # Calculate fines
@@ -572,11 +641,25 @@ def record_attendance(user_id, meeting_id):
                 member_id=member_id
             ).first()
 
+            # Parse arrival_time - handle both HH:MM and HH:MM:SS formats
+            parsed_arrival_time = None
+            if arrival_time:
+                try:
+                    # Try HH:MM:SS format first
+                    parsed_arrival_time = datetime.datetime.strptime(arrival_time, '%H:%M:%S').time()
+                except ValueError:
+                    try:
+                        # Fall back to HH:MM format
+                        parsed_arrival_time = datetime.datetime.strptime(arrival_time, '%H:%M').time()
+                    except ValueError:
+                        # If both fail, skip this time
+                        parsed_arrival_time = None
+
             if attendance:
                 # Update existing
                 attendance.is_present = is_present
-                if arrival_time:
-                    attendance.arrival_time = datetime.datetime.strptime(arrival_time, '%H:%M').time()
+                if parsed_arrival_time:
+                    attendance.arrival_time = parsed_arrival_time
                 attendance.excuse_reason = excuse_reason
             else:
                 # Create new
@@ -587,7 +670,7 @@ def record_attendance(user_id, meeting_id):
                     meeting_date=meeting.meeting_date,
                     meeting_number=meeting.meeting_number,
                     is_present=is_present,
-                    arrival_time=datetime.datetime.strptime(arrival_time, '%H:%M').time() if arrival_time else None,
+                    arrival_time=parsed_arrival_time,
                     excuse_reason=excuse_reason
                 )
                 db.session.add(attendance)

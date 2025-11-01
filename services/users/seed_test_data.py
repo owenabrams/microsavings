@@ -10,7 +10,7 @@ from project import create_app, db
 from project.api.models import (
     User, SavingsGroup, GroupMember, GroupSettings, SavingType, MemberSaving,
     Meeting, MeetingAttendance, SavingTransaction, MemberFine,
-    MeetingActivity, MemberActivityParticipation
+    TrainingRecord, TrainingAttendance, VotingRecord, MemberVote
 )
 from datetime import datetime, date, timedelta
 from decimal import Decimal
@@ -27,8 +27,10 @@ def clear_data():
             # First, get admin user email to preserve it
             admin_email = 'admin@savingsgroup.com'
 
-            MemberActivityParticipation.query.delete()
-            MeetingActivity.query.delete()
+            MemberVote.query.delete()
+            VotingRecord.query.delete()
+            TrainingAttendance.query.delete()
+            TrainingRecord.query.delete()
             MemberFine.query.delete()
             SavingTransaction.query.delete()
             MeetingAttendance.query.delete()
@@ -284,54 +286,67 @@ def seed_data():
                     
                     # Training activity
                     if meeting_num == 1:
-                        training = MeetingActivity(
+                        training = TrainingRecord(
                             meeting_id=meeting.id,
-                            activity_type='TRAINING',
-                            activity_name='Financial Literacy Workshop',
-                            description='Basic financial management and budgeting',
-                            status='COMPLETED',
+                            training_topic='Financial Literacy Workshop',
+                            training_description='Basic financial management and budgeting',
+                            trainer_name=f"{members[0].first_name} {members[0].last_name}",
+                            trainer_type='MEMBER',
                             duration_minutes=45,
-                            conducted_by=members[0].id,
-                            notes='Well attended, members engaged actively'
+                            total_attendees=len(attending_members)
                         )
                         db.session.add(training)
                         db.session.flush()
-                        
-                        # Training participation
+
+                        # Training attendance
                         for member in attending_members:
-                            participation = MemberActivityParticipation(
-                                activity_id=training.id,
+                            attendance = TrainingAttendance(
+                                training_id=training.id,
                                 member_id=member.id,
-                                is_present=True,
-                                contributed_to_discussions=True
+                                attended=True,
+                                notes='Participated actively'
                             )
-                            db.session.add(participation)
+                            db.session.add(attendance)
                     
                     # Voting activity
                     if meeting_num == 0:
-                        voting = MeetingActivity(
+                        voting = VotingRecord(
                             meeting_id=meeting.id,
-                            activity_type='VOTING',
-                            activity_name='Approve New Loan Policy',
-                            description='Vote on updated loan interest rates',
-                            status='COMPLETED',
-                            conducted_by=members[1].id,
-                            notes='Motion passed with majority vote'
+                            vote_topic='Approve New Loan Policy',
+                            vote_description='Vote on updated loan interest rates',
+                            vote_type='SIMPLE_MAJORITY',
+                            proposed_by=members[1].id
                         )
                         db.session.add(voting)
                         db.session.flush()
-                        
-                        # Voting participation
+
+                        # Record votes
+                        yes_count = 0
+                        no_count = 0
+                        abstain_count = 0
+
                         for member in attending_members:
-                            vote = random.choice(['YES', 'YES', 'YES', 'NO', 'ABSTAIN'])
-                            participation = MemberActivityParticipation(
-                                activity_id=voting.id,
+                            vote_cast = random.choice(['YES', 'YES', 'YES', 'NO', 'ABSTAIN'])
+                            member_vote = MemberVote(
+                                voting_record_id=voting.id,
                                 member_id=member.id,
-                                is_present=True,
-                                voted_on_decisions=True,
-                                notes=f"Voted: {vote}"
+                                vote_cast=vote_cast,
+                                notes=f"Voted: {vote_cast}"
                             )
-                            db.session.add(participation)
+                            db.session.add(member_vote)
+
+                            if vote_cast == 'YES':
+                                yes_count += 1
+                            elif vote_cast == 'NO':
+                                no_count += 1
+                            elif vote_cast == 'ABSTAIN':
+                                abstain_count += 1
+
+                        # Update vote counts and result
+                        voting.yes_count = yes_count
+                        voting.no_count = no_count
+                        voting.abstain_count = abstain_count
+                        voting.result = 'PASSED' if yes_count > no_count else 'FAILED'
                 
                 print(f"  ✅ Meeting #{meeting_num + 1} ({status}) - {attending_count}/{len(members)} attended")
         

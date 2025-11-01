@@ -56,7 +56,7 @@ export default function RecordAttendanceDialog({ open, onClose, meetingId, group
         const existing = existingAttendance.find((a) => a.member_id === member.id);
         return {
           member_id: member.id,
-          member_name: member.user_name,
+          member_name: `${member.first_name} ${member.last_name}`,
           is_present: existing?.is_present || false,
           arrival_time: existing?.arrival_time || '',
           excuse_reason: existing?.excuse_reason || '',
