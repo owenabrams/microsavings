@@ -164,10 +164,12 @@ class SavingType(db.Model):
     __tablename__ = 'saving_types'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(String(100), nullable=False, unique=True)
+    name = Column(String(100), nullable=False)
     description = Column(Text)
-    code = Column(String(20), nullable=False, unique=True)
+    code = Column(String(20), nullable=False)
     is_mandatory = Column(Boolean, default=False)
+    is_system = Column(Boolean, default=False)
+    group_id = Column(Integer, ForeignKey('savings_groups.id'))
     minimum_amount = Column(Numeric(10, 2), default=0.00)
     maximum_amount = Column(Numeric(10, 2))
     allows_withdrawal = Column(Boolean, default=True)
@@ -175,6 +177,25 @@ class SavingType(db.Model):
     interest_rate = Column(Numeric(5, 4), default=0.0000)
     is_active = Column(Boolean, default=True)
     created_date = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
+
+
+class GroupSavingTypeSettings(db.Model):
+    """Group-specific settings for saving types."""
+
+    __tablename__ = 'group_saving_type_settings'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    group_id = Column(Integer, ForeignKey('savings_groups.id'), nullable=False)
+    saving_type_id = Column(Integer, ForeignKey('saving_types.id'), nullable=False)
+    is_enabled = Column(Boolean, default=True)
+    minimum_amount = Column(Numeric(10, 2))
+    maximum_amount = Column(Numeric(10, 2))
+    allows_withdrawal = Column(Boolean)
+    withdrawal_notice_days = Column(Integer)
+    interest_rate = Column(Numeric(5, 4))
+    display_order = Column(Integer, default=0)
+    created_date = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
+    updated_date = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow, nullable=False)
 
 
 class MemberSaving(db.Model):

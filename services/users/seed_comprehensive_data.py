@@ -108,6 +108,35 @@ def ensure_schema_complete():
 
         print("   ✅ All required columns added/verified")
 
+        # Create group_saving_type_settings table if it doesn't exist
+        try:
+            create_table_sql = """
+            CREATE TABLE IF NOT EXISTS group_saving_type_settings (
+                id SERIAL PRIMARY KEY,
+                group_id INTEGER NOT NULL REFERENCES savings_groups(id) ON DELETE CASCADE,
+                saving_type_id INTEGER NOT NULL REFERENCES saving_types(id) ON DELETE CASCADE,
+                is_enabled BOOLEAN DEFAULT TRUE,
+                minimum_amount NUMERIC(10, 2),
+                maximum_amount NUMERIC(10, 2),
+                allows_withdrawal BOOLEAN,
+                withdrawal_notice_days INTEGER,
+                interest_rate NUMERIC(5, 4),
+                display_order INTEGER DEFAULT 0,
+                created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(group_id, saving_type_id)
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_gsts_group_id ON group_saving_type_settings(group_id);
+            CREATE INDEX IF NOT EXISTS idx_gsts_saving_type_id ON group_saving_type_settings(saving_type_id);
+            """
+            db.session.execute(text(create_table_sql))
+            db.session.commit()
+            print("   ✅ group_saving_type_settings table created/verified")
+        except Exception as e:
+            db.session.rollback()
+            print(f"   ⚠️  group_saving_type_settings table creation skipped: {str(e)[:100]}")
+
         # Create database views
         try:
             # 1. member_profile_complete view
