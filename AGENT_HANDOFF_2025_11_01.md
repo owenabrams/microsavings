@@ -1,8 +1,10 @@
 # Agent Handoff Document
 
-**Date:** 2025-11-01  
-**Project:** Microsavings Group Management Platform  
+**Date:** 2025-11-01
+**Project:** Microsavings Group Management Platform
 **Repository:** https://github.com/owenabrams/microsavings
+
+**⚠️ THIS IS THE ONLY CURRENT AGENT HANDOFF - All previous versions are obsolete**
 
 ---
 
@@ -17,7 +19,48 @@
 | Database (PostgreSQL) | ✅ Running | 5432 | Healthy |
 | Adminer | ✅ Running | 8080 | Healthy |
 
-**Last Major Update:** 2025-11-01 (Comprehensive seeding system + ORM/Schema alignment)
+**Last Major Update:** 2025-11-01
+**Recent Fixes:** Documents tab 401 error, member profile 500 error, super admin permissions, member self-service profile management
+
+---
+
+## 🆕 Recent Critical Fixes (2025-11-01)
+
+### **1. Documents Tab 401 Error** ✅ FIXED
+- **Problem:** Clicking Documents tab logged users out with 401 error
+- **Solution:** Added super admin bypass to `is_group_admin()` and all document endpoints
+- **Files:** `services/users/project/api/group_documents.py`
+- **Result:** Super admin can now access all group documents without membership
+
+### **2. Member Profile 500 Error** ✅ FIXED
+- **Problem:** Member profile page returned 500 error
+- **Solution:** Created `member_profile_complete` database view, auto-created in `startup.sh`
+- **Files:** `services/users/create_member_profile_view.sql`, `services/users/startup.sh`
+- **Result:** Member profiles load successfully with full data
+
+### **3. Super Admin Permissions** ✅ IMPLEMENTED
+- **Problem:** Super admin couldn't access all groups
+- **Solution:** Added `is_super_admin` checks to bypass all group membership requirements
+- **Files:** `services/users/project/api/group_documents.py`
+- **Result:** Super admin has full CRUD access to all groups
+
+### **4. Member Self-Service Profile Management** ✅ IMPLEMENTED
+- **Problem:** Members couldn't update their own username, password, email
+- **Solution:** Added `GET/PUT /api/auth/profile` endpoints, updated permission checks
+- **Files:** `services/users/project/api/auth.py`, `services/users/project/api/member_profile.py`
+- **Result:** Members can manage their own account and profile information
+
+### **5. Database Schema Updates** ✅ FIXED
+- **Problem:** `group_documents` table missing 20 columns
+- **Solution:** Added columns for compression, preview, versioning, soft delete, access control
+- **Files:** `services/users/startup.sh`
+- **Result:** All document features now work correctly
+
+### **New API Endpoints:**
+```
+GET  /api/auth/profile          - Get current user's account info
+PUT  /api/auth/profile          - Update username, email, password
+```
 
 ---
 

@@ -45,18 +45,22 @@ def authenticate(f):
 
 def is_group_admin(user_id, group_id):
     """Check if user is admin or leader of the group."""
+    # Check if user is super admin first
+    user = User.query.get(user_id)
+    if user and (user.is_super_admin or user.admin):
+        return True
+
     member = GroupMember.query.filter_by(
         user_id=user_id,
         group_id=group_id,
         is_active=True
     ).first()
-    
+
     if not member:
         return False
-    
-    # Check if user is admin or has leader role
-    user = User.query.get(user_id)
-    return user.admin or member.role in ['ADMIN', 'LEADER', 'CHAIRPERSON', 'SECRETARY', 'TREASURER']
+
+    # Check if member has leader role
+    return member.role in ['ADMIN', 'LEADER', 'CHAIRPERSON', 'SECRETARY', 'TREASURER']
 
 
 def allowed_file(filename):
@@ -71,16 +75,19 @@ def get_group_documents(user_id, group_id):
     group = SavingsGroup.query.get(group_id)
     if not group:
         return jsonify({'status': 'error', 'message': 'Group not found'}), 404
-    
-    # Check if user is member of the group
-    member = GroupMember.query.filter_by(
-        user_id=user_id,
-        group_id=group_id,
-        is_active=True
-    ).first()
-    
-    if not member:
-        return jsonify({'status': 'error', 'message': 'Access denied'}), 403
+
+    # Check if user is super admin (bypass membership check)
+    user = User.query.get(user_id)
+    if not (user and (user.is_super_admin or user.admin)):
+        # Check if user is member of the group
+        member = GroupMember.query.filter_by(
+            user_id=user_id,
+            group_id=group_id,
+            is_active=True
+        ).first()
+
+        if not member:
+            return jsonify({'status': 'error', 'message': 'Access denied'}), 403
     
     # Get document type filter from query params
     document_type = request.args.get('type')
@@ -302,15 +309,18 @@ def download_group_document(user_id, group_id, document_id):
     if not group:
         return jsonify({'status': 'error', 'message': 'Group not found'}), 404
 
-    # Check if user is member of the group
-    member = GroupMember.query.filter_by(
-        user_id=user_id,
-        group_id=group_id,
-        is_active=True
-    ).first()
+    # Check if user is super admin (bypass membership check)
+    user = User.query.get(user_id)
+    if not (user and (user.is_super_admin or user.admin)):
+        # Check if user is member of the group
+        member = GroupMember.query.filter_by(
+            user_id=user_id,
+            group_id=group_id,
+            is_active=True
+        ).first()
 
-    if not member:
-        return jsonify({'status': 'error', 'message': 'Access denied'}), 403
+        if not member:
+            return jsonify({'status': 'error', 'message': 'Access denied'}), 403
 
     document = GroupDocument.query.filter_by(
         id=document_id,
@@ -345,15 +355,18 @@ def preview_group_document(user_id, group_id, document_id):
     if not group:
         return jsonify({'status': 'error', 'message': 'Group not found'}), 404
 
-    # Check if user is member of the group
-    member = GroupMember.query.filter_by(
-        user_id=user_id,
-        group_id=group_id,
-        is_active=True
-    ).first()
+    # Check if user is super admin (bypass membership check)
+    user = User.query.get(user_id)
+    if not (user and (user.is_super_admin or user.admin)):
+        # Check if user is member of the group
+        member = GroupMember.query.filter_by(
+            user_id=user_id,
+            group_id=group_id,
+            is_active=True
+        ).first()
 
-    if not member:
-        return jsonify({'status': 'error', 'message': 'Access denied'}), 403
+        if not member:
+            return jsonify({'status': 'error', 'message': 'Access denied'}), 403
 
     document = GroupDocument.query.filter_by(
         id=document_id,

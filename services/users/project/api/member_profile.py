@@ -88,7 +88,7 @@ def update_member_profile(user_id, group_id, member_id):
     """Update member profile."""
     try:
         data = request.get_json()
-        
+
         # Verify member exists and belongs to group
         member = GroupMember.query.filter_by(id=member_id, group_id=group_id).first()
         if not member:
@@ -96,7 +96,19 @@ def update_member_profile(user_id, group_id, member_id):
                 'status': 'fail',
                 'message': 'Member not found.'
             }), 404
-        
+
+        # Check permissions: user can update their own profile, or super admin can update any profile
+        user = User.query.get(user_id)
+        is_own_profile = (member.user_id == user_id)
+        is_super_admin = (user and (user.is_super_admin or user.admin))
+        is_group_admin = (member.role in ['ADMIN', 'CHAIRPERSON', 'SECRETARY', 'TREASURER'])
+
+        if not (is_own_profile or is_super_admin or is_group_admin):
+            return jsonify({
+                'status': 'fail',
+                'message': 'You do not have permission to update this profile.'
+            }), 403
+
         # Update allowed fields
         allowed_fields = [
             'first_name', 'last_name', 'email', 'phone_number', 'id_number',

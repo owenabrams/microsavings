@@ -1,14 +1,24 @@
 # 🏗️ Default Build Setup - Single Source of Truth
 
-**Last Updated:** 2025-11-01  
-**Status:** ✅ Production-Ready  
+**Last Updated:** 2025-11-01
+**Status:** ✅ Production-Ready
 **Repository:** https://github.com/owenabrams/microsavings
+
+**Recent Updates:** Fixed documents tab 401 error, member profile 500 error, super admin permissions, member self-service profile management, database schema updates
 
 ---
 
 ## ⚠️ IMPORTANT: This is the ONLY Default Build Configuration
 
 This document defines the **single source of truth** for building and running the microsavings application. All other setup files, seeding scripts, and documentation have been cleaned up to prevent confusion.
+
+### **Latest Fixes Included in Default Build:**
+
+1. ✅ **Documents Tab 401 Error** - Super admin can now access all group documents
+2. ✅ **Member Profile 500 Error** - Database view auto-created on startup
+3. ✅ **Super Admin Permissions** - Full access to all groups without membership
+4. ✅ **Member Self-Service** - New endpoints for user account management
+5. ✅ **Database Schema** - Auto-updates `group_documents` table with 20 missing columns
 
 ---
 
@@ -43,11 +53,13 @@ This script runs automatically when the backend container starts. It:
 1. Waits for database to be ready
 2. Creates database if it doesn't exist
 3. Runs database migrations
-4. Seeds admin user
-5. **AUTO-SEEDS comprehensive data on first run** (checks for `.data_seeded` marker)
-6. Starts the Flask application
+4. **Creates `member_profile_complete` database view** (for member profiles)
+5. **Updates `group_documents` table schema** (adds 20 missing columns)
+6. Seeds admin user
+7. **AUTO-SEEDS comprehensive data on first run** (checks for `.data_seeded` marker)
+8. Starts the Flask application
 
-**No manual intervention required** - everything happens automatically.
+**No manual intervention required** - everything happens automatically, including all recent fixes.
 
 ### **3. Seeding Script**
 
