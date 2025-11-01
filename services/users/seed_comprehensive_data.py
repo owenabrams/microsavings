@@ -42,9 +42,28 @@ def ensure_schema_complete():
         from sqlalchemy import text
 
         missing_columns = [
-            # group_members table
+            # group_members table - financial
             ("group_members", "target_amount", "NUMERIC(15, 2) DEFAULT 0"),
+
+            # group_members table - profile
             ("group_members", "profile_photo_url", "VARCHAR(500)"),
+            ("group_members", "address", "TEXT"),
+            ("group_members", "emergency_contact_name", "VARCHAR(200)"),
+            ("group_members", "emergency_contact_phone", "VARCHAR(20)"),
+            ("group_members", "notes", "TEXT"),
+
+            # group_members table - permissions
+            ("group_members", "can_view_finances", "BOOLEAN DEFAULT TRUE"),
+            ("group_members", "can_apply_for_loans", "BOOLEAN DEFAULT TRUE"),
+            ("group_members", "can_vote", "BOOLEAN DEFAULT TRUE"),
+            ("group_members", "notification_preferences", "JSONB DEFAULT '{\"email\": true, \"sms\": true, \"push\": true}'::jsonb"),
+
+            # group_members table - exit/suspension
+            ("group_members", "exit_date", "DATE"),
+            ("group_members", "exit_reason", "TEXT"),
+            ("group_members", "suspended_date", "DATE"),
+            ("group_members", "suspended_reason", "TEXT"),
+            ("group_members", "suspended_by", "INTEGER"),
 
             # transaction tables - notes column
             ("saving_transactions", "notes", "TEXT"),
