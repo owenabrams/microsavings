@@ -108,8 +108,9 @@ def ensure_schema_complete():
 
         print("   ✅ All required columns added/verified")
 
-        # Create member_profile_complete view if it doesn't exist
+        # Create database views
         try:
+            # 1. member_profile_complete view
             view_sql = """
             CREATE OR REPLACE VIEW member_profile_complete AS
             SELECT
@@ -145,8 +146,128 @@ def ensure_schema_complete():
             LEFT JOIN savings_groups sg ON gm.group_id = sg.id;
             """
             db.session.execute(text(view_sql))
+
+            # 2. member_documents_detailed view
+            view_sql = """
+            CREATE OR REPLACE VIEW member_documents_detailed AS
+            SELECT
+                gd.id,
+                gd.group_id,
+                NULL::integer as member_id,
+                gd.document_title as document_name,
+                gd.document_type,
+                gd.file_path,
+                gd.file_size,
+                gd.mime_type as file_type,
+                gd.mime_type,
+                gd.description,
+                CASE WHEN gd.approval_status = 'APPROVED' THEN TRUE ELSE FALSE END as is_verified,
+                gd.approved_by as verified_by,
+                gd.approval_date as verified_date,
+                gd.uploaded_by,
+                gd.upload_date as uploaded_date,
+                gd.is_compressed,
+                gd.has_preview,
+                gd.thumbnail_path,
+                gd.preview_path,
+                gd.download_count,
+                gd.last_accessed,
+                gd.is_deleted,
+                gd.created_date,
+                gd.updated_date,
+                u.username as uploaded_by_username,
+                v.username as verified_by_username
+            FROM group_documents gd
+            LEFT JOIN users u ON gd.uploaded_by = u.id
+            LEFT JOIN users v ON gd.approved_by = v.id
+            WHERE (gd.is_deleted IS NULL OR gd.is_deleted = FALSE);
+            """
+            db.session.execute(text(view_sql))
+
+            # 3. member_activity_log view
+            view_sql = """
+            CREATE OR REPLACE VIEW member_activity_log AS
+            -- Savings transactions
+            SELECT
+                st.id,
+                ms.member_id,
+                'SAVINGS' as activity_category,
+                st.transaction_type as activity_type,
+                CONCAT(st.transaction_type, ' of ', st.amount, ' to ', COALESCE(sty.name, 'Unknown Fund')) as description,
+                st.amount,
+                st.created_date as activity_date,
+                st.verified_by as performed_by,
+                st.notes
+            FROM saving_transactions st
+            LEFT JOIN member_savings ms ON st.member_saving_id = ms.id
+            LEFT JOIN saving_types sty ON ms.saving_type_id = sty.id
+            WHERE ms.member_id IS NOT NULL
+
+            UNION ALL
+
+            -- Fines
+            SELECT
+                mf.id,
+                mf.member_id,
+                'FINE' as activity_category,
+                mf.fine_type as activity_type,
+                CONCAT('Fine: ', COALESCE(mf.reason, 'No reason'), ' - Amount: ', mf.amount) as description,
+                mf.amount,
+                mf.created_date as activity_date,
+                NULL::integer as performed_by,
+                mf.notes
+            FROM member_fines mf
+
+            UNION ALL
+
+            -- Loan disbursements
+            SELECT
+                gl.id,
+                gl.member_id,
+                'LOAN' as activity_category,
+                'DISBURSEMENT' as activity_type,
+                CONCAT('Loan disbursed: ', gl.principal, ' at ', COALESCE(gl.interest_rate, 0), '% interest') as description,
+                gl.principal as amount,
+                gl.disbursement_date as activity_date,
+                gl.approved_by as performed_by,
+                gl.notes
+            FROM group_loans gl
+            WHERE gl.disbursement_date IS NOT NULL
+
+            UNION ALL
+
+            -- Loan repayments
+            SELECT
+                lr.id,
+                lr.member_id,
+                'LOAN' as activity_category,
+                'REPAYMENT' as activity_type,
+                CONCAT('Loan repayment: ', lr.repayment_amount) as description,
+                lr.repayment_amount as amount,
+                lr.repayment_date as activity_date,
+                lr.recorded_by as performed_by,
+                lr.notes
+            FROM loan_repayments lr
+
+            UNION ALL
+
+            -- Meeting attendance
+            SELECT
+                ma.id,
+                ma.member_id,
+                'ATTENDANCE' as activity_category,
+                CASE WHEN ma.is_present THEN 'PRESENT' ELSE 'ABSENT' END as activity_type,
+                CONCAT('Meeting attendance: ', CASE WHEN ma.is_present THEN 'Present' ELSE 'Absent' END) as description,
+                NULL::numeric as amount,
+                ma.created_date as activity_date,
+                NULL::integer as performed_by,
+                NULL::text as notes
+            FROM meeting_attendance ma;
+            """
+            db.session.execute(text(view_sql))
+
             db.session.commit()
-            print("   ✅ Database views created/verified")
+            print("   ✅ Database views created/verified (member_profile_complete, member_documents_detailed, member_activity_log)")
         except Exception as e:
             db.session.rollback()
             print(f"   ⚠️  View creation skipped: {str(e)[:100]}")

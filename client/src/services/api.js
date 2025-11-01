@@ -103,6 +103,14 @@ export const membersAPI = {
   // Member documents
   getDocuments: (groupId, memberId) =>
     api.get(`/api/groups/${groupId}/members/${memberId}/documents`),
+
+  // Member financial data
+  getFinancial: (groupId, memberId) =>
+    api.get(`/api/groups/${groupId}/members/${memberId}/financial`),
+
+  // Member attendance history
+  getAttendance: (groupId, memberId, params) =>
+    api.get(`/api/groups/${groupId}/members/${memberId}/attendance`, { params }),
 };
 
 export const meetingsAPI = {

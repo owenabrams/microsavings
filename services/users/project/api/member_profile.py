@@ -638,3 +638,220 @@ def get_group_members_enhanced(user_id, group_id):
             'message': f'Error fetching members: {str(e)}'
         }), 500
 
+
+@member_profile_blueprint.route('/groups/<int:group_id>/members/<int:member_id>/financial', methods=['GET'])
+@authenticate
+def get_member_financial(user_id, group_id, member_id):
+    """Get member financial data (savings, loans, fines)."""
+    try:
+        # Verify member belongs to group
+        member = GroupMember.query.filter_by(id=member_id, group_id=group_id).first()
+        if not member:
+            return jsonify({
+                'status': 'fail',
+                'message': 'Member not found.'
+            }), 404
+
+        # Get savings by fund type
+        savings_query = text("""
+            SELECT
+                st.name as fund_name,
+                st.description as fund_description,
+                COALESCE(SUM(CASE WHEN sav_t.transaction_type = 'DEPOSIT' THEN sav_t.amount ELSE 0 END), 0) as total_deposits,
+                COALESCE(SUM(CASE WHEN sav_t.transaction_type = 'WITHDRAWAL' THEN sav_t.amount ELSE 0 END), 0) as total_withdrawals,
+                COALESCE(SUM(CASE WHEN sav_t.transaction_type = 'DEPOSIT' THEN sav_t.amount ELSE -sav_t.amount END), 0) as balance
+            FROM member_savings ms
+            LEFT JOIN saving_types st ON ms.saving_type_id = st.id
+            LEFT JOIN saving_transactions sav_t ON sav_t.member_saving_id = ms.id
+            WHERE ms.member_id = :member_id
+            GROUP BY st.id, st.name, st.description
+            ORDER BY st.name
+        """)
+
+        savings_result = db.session.execute(savings_query, {'member_id': member_id})
+        savings_by_fund = []
+        total_savings = 0
+
+        for row in savings_result:
+            fund_data = dict(row._mapping)
+            fund_data['total_deposits'] = float(fund_data['total_deposits'])
+            fund_data['total_withdrawals'] = float(fund_data['total_withdrawals'])
+            fund_data['balance'] = float(fund_data['balance'])
+            total_savings += fund_data['balance']
+            savings_by_fund.append(fund_data)
+
+        # Get loans
+        loans_query = text("""
+            SELECT
+                id,
+                principal,
+                interest_rate,
+                term_months,
+                monthly_payment,
+                status,
+                application_date,
+                approval_date,
+                disbursement_date,
+                maturity_date,
+                total_amount_due,
+                amount_paid,
+                outstanding_balance,
+                payments_made,
+                payments_missed,
+                days_overdue
+            FROM group_loans
+            WHERE member_id = :member_id
+            ORDER BY application_date DESC
+        """)
+
+        loans_result = db.session.execute(loans_query, {'member_id': member_id})
+        loans = []
+
+        for row in loans_result:
+            loan_data = dict(row._mapping)
+            # Convert dates to strings
+            for key, value in loan_data.items():
+                if isinstance(value, datetime):
+                    loan_data[key] = value.isoformat()
+                elif hasattr(value, 'isoformat'):
+                    loan_data[key] = value.isoformat()
+                elif isinstance(value, (int, float)):
+                    loan_data[key] = float(value) if '.' in str(value) or isinstance(value, float) else value
+            loans.append(loan_data)
+
+        # Get fines
+        fines_query = text("""
+            SELECT
+                id,
+                fine_type,
+                reason,
+                amount,
+                is_paid,
+                paid_amount,
+                paid_date,
+                created_date
+            FROM member_fines
+            WHERE member_id = :member_id
+            ORDER BY created_date DESC
+        """)
+
+        fines_result = db.session.execute(fines_query, {'member_id': member_id})
+        fines = []
+        total_fines = 0
+        paid_fines = 0
+
+        for row in fines_result:
+            fine_data = dict(row._mapping)
+            # Convert dates to strings
+            for key, value in fine_data.items():
+                if isinstance(value, datetime):
+                    fine_data[key] = value.isoformat()
+                elif hasattr(value, 'isoformat'):
+                    fine_data[key] = value.isoformat()
+
+            fine_data['amount'] = float(fine_data['amount'])
+            fine_data['paid_amount'] = float(fine_data.get('paid_amount') or 0)
+            total_fines += fine_data['amount']
+            paid_fines += fine_data['paid_amount']
+            fines.append(fine_data)
+
+        return jsonify({
+            'status': 'success',
+            'data': {
+                'savings': {
+                    'total': total_savings,
+                    'by_fund': savings_by_fund
+                },
+                'loans': loans,
+                'fines': {
+                    'total': total_fines,
+                    'paid': paid_fines,
+                    'outstanding': total_fines - paid_fines,
+                    'items': fines
+                }
+            }
+        }), 200
+
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': f'Error fetching financial data: {str(e)}'
+        }), 500
+
+
+@member_profile_blueprint.route('/groups/<int:group_id>/members/<int:member_id>/attendance', methods=['GET'])
+@authenticate
+def get_member_attendance(user_id, group_id, member_id):
+    """Get member attendance history."""
+    try:
+        # Verify member belongs to group
+        member = GroupMember.query.filter_by(id=member_id, group_id=group_id).first()
+        if not member:
+            return jsonify({
+                'status': 'fail',
+                'message': 'Member not found.'
+            }), 404
+
+        # Get attendance records
+        attendance_query = text("""
+            SELECT
+                ma.id,
+                ma.meeting_id,
+                m.meeting_date,
+                m.meeting_type,
+                ma.is_present,
+                ma.arrival_time,
+                ma.excuse_reason,
+                ma.fine_applied,
+                ma.fine_amount,
+                ma.created_date
+            FROM meeting_attendance ma
+            LEFT JOIN meetings m ON ma.meeting_id = m.id
+            WHERE ma.member_id = :member_id
+            ORDER BY m.meeting_date DESC
+        """)
+
+        attendance_result = db.session.execute(attendance_query, {'member_id': member_id})
+        attendance_records = []
+        total_meetings = 0
+        attended_meetings = 0
+
+        for row in attendance_result:
+            record = dict(row._mapping)
+            # Convert dates to strings
+            for key, value in record.items():
+                if isinstance(value, datetime):
+                    record[key] = value.isoformat()
+                elif hasattr(value, 'isoformat'):
+                    record[key] = value.isoformat()
+
+            if record.get('fine_amount'):
+                record['fine_amount'] = float(record['fine_amount'])
+
+            total_meetings += 1
+            if record.get('is_present'):
+                attended_meetings += 1
+
+            attendance_records.append(record)
+
+        attendance_rate = (attended_meetings / total_meetings * 100) if total_meetings > 0 else 0
+
+        return jsonify({
+            'status': 'success',
+            'data': {
+                'summary': {
+                    'total_meetings': total_meetings,
+                    'attended': attended_meetings,
+                    'absent': total_meetings - attended_meetings,
+                    'attendance_rate': round(attendance_rate, 2)
+                },
+                'records': attendance_records
+            }
+        }), 200
+
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': f'Error fetching attendance data: {str(e)}'
+        }), 500
+
