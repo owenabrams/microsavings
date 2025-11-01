@@ -4,7 +4,7 @@
 **Status:** ✅ Production-Ready
 **Repository:** https://github.com/owenabrams/microsavings
 
-**Recent Updates:** Fixed documents tab 401 error, member profile 500 error, super admin permissions, member self-service profile management, database schema updates
+**Recent Updates:** Fixed saving types system (system vs custom types), member profile real-time data, documents tab 401 error, super admin permissions, member self-service profile management, database schema updates
 
 ---
 
@@ -14,11 +14,13 @@ This document defines the **single source of truth** for building and running th
 
 ### **Latest Fixes Included in Default Build:**
 
-1. ✅ **Documents Tab 401 Error** - Super admin can now access all group documents
-2. ✅ **Member Profile 500 Error** - Database view auto-created on startup
-3. ✅ **Super Admin Permissions** - Full access to all groups without membership
-4. ✅ **Member Self-Service** - New endpoints for user account management
-5. ✅ **Database Schema** - Auto-updates `group_documents` table with 20 missing columns
+1. ✅ **Saving Types System** - System types (5 defaults) available to all groups, custom types isolated per group
+2. ✅ **Member Profile Real-Time Data** - All tabs (Overview, Financial, Attendance, Documents, Activity Log) display real data
+3. ✅ **Documents Tab 401 Error** - Super admin can now access all group documents
+4. ✅ **Member Profile 500 Error** - Database view auto-created on startup
+5. ✅ **Super Admin Permissions** - Full access to all groups without membership
+6. ✅ **Member Self-Service** - New endpoints for user account management
+7. ✅ **Database Schema** - Auto-updates `group_documents` table with 20 missing columns
 
 ---
 
@@ -195,6 +197,95 @@ docker compose -f docker-compose.professional.yml logs backend | grep "SEEDING"
 
 ### **Step 5: Login**
 Use admin credentials or any member account (see above).
+
+---
+
+## 💰 Saving Types System
+
+### **System Types vs Custom Types**
+
+The application supports two types of saving types:
+
+**System Types** (5 default types available to all groups):
+- Personal Savings (Mandatory)
+- ECD Fund (Early Childhood Development)
+- Social Fund
+- Emergency Fund
+- Target Fund
+
+**Database:** `is_system = TRUE`, `group_id = NULL`
+
+**Custom Types** (group-specific):
+- Created by group admins via "Manage Financial Activities" dialog
+- Only visible to the group that created them
+- Examples: "School Fees Fund", "Agriculture Fund", "Business Capital Fund"
+
+**Database:** `is_system = FALSE`, `group_id = specific_group_id`
+
+### **Key Tables**
+
+**`saving_types` table:**
+```sql
+CREATE TABLE saving_types (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    code VARCHAR(20) NOT NULL,
+    is_system BOOLEAN DEFAULT FALSE,     -- TRUE = system, FALSE = custom
+    group_id INTEGER REFERENCES savings_groups(id),  -- NULL = system, set = custom
+    is_mandatory BOOLEAN DEFAULT FALSE,
+    minimum_amount NUMERIC(10, 2),
+    maximum_amount NUMERIC(10, 2),
+    allows_withdrawal BOOLEAN DEFAULT TRUE,
+    withdrawal_notice_days INTEGER DEFAULT 0,
+    interest_rate NUMERIC(5, 4) DEFAULT 0.0000,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+**`group_saving_type_settings` table:**
+```sql
+CREATE TABLE group_saving_type_settings (
+    id SERIAL PRIMARY KEY,
+    group_id INTEGER NOT NULL REFERENCES savings_groups(id) ON DELETE CASCADE,
+    saving_type_id INTEGER NOT NULL REFERENCES saving_types(id) ON DELETE CASCADE,
+    is_enabled BOOLEAN DEFAULT TRUE,      -- Groups can disable system types
+    minimum_amount NUMERIC(10, 2),        -- Override system minimum
+    maximum_amount NUMERIC(10, 2),        -- Override system maximum
+    allows_withdrawal BOOLEAN,            -- Override system setting
+    withdrawal_notice_days INTEGER,       -- Override system setting
+    interest_rate NUMERIC(5, 4),          -- Override system rate
+    display_order INTEGER DEFAULT 0,      -- Order in dropdown
+    created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(group_id, saving_type_id)
+);
+```
+
+### **Automatic Creation**
+
+Both tables are automatically created during database initialization by `seed_comprehensive_data.py`:
+- `saving_types` table created via `db.create_all()`
+- `group_saving_type_settings` table created via raw SQL in `ensure_schema_complete()`
+- 5 system saving types created with `is_system = TRUE` in `create_saving_types()`
+
+### **Query Logic**
+
+Backend endpoint `/api/groups/{groupId}/saving-types` returns:
+```sql
+WHERE (st.is_system = TRUE OR st.group_id = :group_id) AND st.is_active = TRUE
+```
+
+This ensures:
+- System types (`is_system = TRUE`) → Available to ALL groups
+- Custom types (`group_id = :group_id`) → Available ONLY to the creating group
+
+### **Usage in Meetings**
+
+1. **MeetingWorkspace Savings Tab** - Dropdown shows all available saving types (system + custom)
+2. **Group Settings > Manage Financial Activities** - Dialog shows existing types and allows creation
+3. **Member Profile Financial Tab** - Shows balances for all saving types
+4. **Transactions** - Recorded with `saving_type_id` in `saving_transactions` table
 
 ---
 

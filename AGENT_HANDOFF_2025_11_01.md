@@ -20,37 +20,69 @@
 | Adminer | ✅ Running | 8080 | Healthy |
 
 **Last Major Update:** 2025-11-01
-**Recent Fixes:** Documents tab 401 error, member profile 500 error, super admin permissions, member self-service profile management
+**Recent Fixes:** Saving types system (system vs custom), member profile real-time data, documents tab 401 error, super admin permissions, member self-service profile management
 
 ---
 
 ## 🆕 Recent Critical Fixes (2025-11-01)
 
-### **1. Documents Tab 401 Error** ✅ FIXED
+### **1. Saving Types System** ✅ FIXED (Latest)
+- **Problem:**
+  - "Select Saving Type" dropdown in MeetingWorkspace was empty
+  - "Existing Saving Types" in Manage Financial Activities dialog was empty
+  - Saving types had `is_system = false` so they weren't returned by queries
+- **Solution:**
+  - Created `group_saving_type_settings` table for group-specific overrides
+  - Updated all 5 default saving types to be system types (`is_system = TRUE`)
+  - Modified seeding script to automatically create table and mark types as system
+- **Files:**
+  - `services/users/project/api/models.py` - Added `GroupSavingTypeSettings` model
+  - `services/users/seed_comprehensive_data.py` - Auto-creates table and system types
+  - `services/users/project/api/saving_types.py` - Backend endpoints
+- **Result:**
+  - System types (5 defaults) available to all groups
+  - Custom types (created by groups) isolated per group
+  - Both dropdowns now work correctly
+- **Commits:** `6d1b956`, `c39ba8f`
+
+### **2. Member Profile Real-Time Data** ✅ IMPLEMENTED
+- **Problem:** All member profile tabs (Overview, Financial, Attendance, Documents, Activity Log) showed placeholder data
+- **Solution:**
+  - Created 3 database views: `member_documents_detailed`, `member_activity_log`, `member_profile_complete`
+  - Added 2 new backend endpoints: `/api/groups/{groupId}/members/{memberId}/financial` and `/attendance`
+  - Updated frontend components to fetch and display real data
+- **Files:**
+  - `services/users/seed_comprehensive_data.py` - Creates views automatically
+  - `services/users/project/api/member_profile.py` - New endpoints
+  - `client/src/components/MemberProfile.js` - Updated to use real data
+- **Result:** All 5 member profile tabs now display real-time data from database
+- **Commit:** `105201b`
+
+### **3. Documents Tab 401 Error** ✅ FIXED
 - **Problem:** Clicking Documents tab logged users out with 401 error
 - **Solution:** Added super admin bypass to `is_group_admin()` and all document endpoints
 - **Files:** `services/users/project/api/group_documents.py`
 - **Result:** Super admin can now access all group documents without membership
 
-### **2. Member Profile 500 Error** ✅ FIXED
+### **4. Member Profile 500 Error** ✅ FIXED
 - **Problem:** Member profile page returned 500 error
 - **Solution:** Created `member_profile_complete` database view, auto-created in `startup.sh`
 - **Files:** `services/users/create_member_profile_view.sql`, `services/users/startup.sh`
 - **Result:** Member profiles load successfully with full data
 
-### **3. Super Admin Permissions** ✅ IMPLEMENTED
+### **5. Super Admin Permissions** ✅ IMPLEMENTED
 - **Problem:** Super admin couldn't access all groups
 - **Solution:** Added `is_super_admin` checks to bypass all group membership requirements
 - **Files:** `services/users/project/api/group_documents.py`
 - **Result:** Super admin has full CRUD access to all groups
 
-### **4. Member Self-Service Profile Management** ✅ IMPLEMENTED
+### **6. Member Self-Service Profile Management** ✅ IMPLEMENTED
 - **Problem:** Members couldn't update their own username, password, email
 - **Solution:** Added `GET/PUT /api/auth/profile` endpoints, updated permission checks
 - **Files:** `services/users/project/api/auth.py`, `services/users/project/api/member_profile.py`
 - **Result:** Members can manage their own account and profile information
 
-### **5. Database Schema Updates** ✅ FIXED
+### **7. Database Schema Updates** ✅ FIXED
 - **Problem:** `group_documents` table missing 20 columns
 - **Solution:** Added columns for compression, preview, versioning, soft delete, access control
 - **Files:** `services/users/startup.sh`
@@ -58,8 +90,14 @@
 
 ### **New API Endpoints:**
 ```
-GET  /api/auth/profile          - Get current user's account info
-PUT  /api/auth/profile          - Update username, email, password
+GET  /api/auth/profile                                      - Get current user's account info
+PUT  /api/auth/profile                                      - Update username, email, password
+GET  /api/groups/{groupId}/members/{memberId}/financial    - Get member financial data
+GET  /api/groups/{groupId}/members/{memberId}/attendance   - Get member attendance data
+GET  /api/groups/{groupId}/saving-types                    - Get all saving types for group
+POST /api/groups/{groupId}/saving-types                    - Create custom saving type
+PUT  /api/groups/{groupId}/saving-types/{typeId}           - Update saving type
+DELETE /api/groups/{groupId}/saving-types/{typeId}         - Delete custom saving type
 ```
 
 ---
@@ -204,6 +242,100 @@ Each group has 24 weekly meetings (6 months) with:
 - **Root Cause:** Database stores HH:MM:SS but parser expected HH:MM
 - **Fix:** Updated attendance endpoint in `services/users/project/api/meetings.py` lines 609-654
 - **Solution:** Flexible time parsing handles both formats
+
+---
+
+## 💰 Saving Types System Architecture
+
+### **Overview**
+
+The application supports two types of saving types with complete isolation:
+
+**System Types** (5 default types):
+- Personal Savings (Mandatory)
+- ECD Fund (Early Childhood Development)
+- Social Fund
+- Emergency Fund
+- Target Fund
+
+**Characteristics:**
+- `is_system = TRUE`, `group_id = NULL`
+- Available to ALL groups by default
+- Cannot be deleted (protected)
+- Can be disabled per group via `group_saving_type_settings`
+
+**Custom Types** (group-specific):
+- Created by group admins via "Manage Financial Activities" dialog
+- Only visible to the group that created them
+- Examples: "School Fees Fund", "Agriculture Fund", "Business Capital Fund"
+
+**Characteristics:**
+- `is_system = FALSE`, `group_id = specific_group_id`
+- Only available to the creating group
+- Can be edited and deleted by group admins
+- Completely independent between groups
+
+### **Database Tables**
+
+**`saving_types` table:**
+- Stores both system and custom saving types
+- System types: `is_system = TRUE`, `group_id = NULL`
+- Custom types: `is_system = FALSE`, `group_id = specific_group_id`
+- Fields: name, code, description, is_mandatory, minimum_amount, maximum_amount, allows_withdrawal, withdrawal_notice_days, interest_rate, is_active
+
+**`group_saving_type_settings` table:**
+- Group-specific overrides for saving types
+- Allows groups to disable system types
+- Allows groups to override min/max amounts, interest rates, etc.
+- UNIQUE constraint on (group_id, saving_type_id)
+- Auto-created by seeding script
+
+### **Query Logic**
+
+Backend endpoint `/api/groups/{groupId}/saving-types` uses:
+```sql
+WHERE (st.is_system = TRUE OR st.group_id = :group_id) AND st.is_active = TRUE
+```
+
+This ensures:
+- System types (`is_system = TRUE`) → Returned for ALL groups
+- Custom types (`group_id = :group_id`) → Returned ONLY for the specific group
+
+### **Automatic Creation**
+
+Both tables are automatically created during database initialization:
+1. `saving_types` table created via `db.create_all()` in seeding script
+2. `group_saving_type_settings` table created via raw SQL in `ensure_schema_complete()`
+3. 5 system saving types created with `is_system = TRUE` in `create_saving_types()`
+
+### **Usage Flow**
+
+**Creating Custom Types:**
+1. Group admin navigates to Group Settings → Activities Tab
+2. Clicks "Manage Saving Types" button
+3. Clicks "Add New Saving Type"
+4. Fills form (name, description, min/max amounts, interest rate, etc.)
+5. Backend creates type with `is_system = FALSE` and `group_id = current_group_id`
+
+**Using in Meetings:**
+1. MeetingWorkspace Savings tab fetches `/api/groups/{groupId}/saving-types`
+2. Dropdown shows all available types (system + custom for this group)
+3. Member selects type and enters deposit/withdrawal amount
+4. Transaction saved with `saving_type_id` in `saving_transactions` table
+5. Balance updated in `member_savings` table
+
+**Isolation Example:**
+- Group 11 creates "School Fees Fund" (custom)
+- Group 11 sees: 5 system types + "School Fees Fund" = 6 total
+- Group 12 sees: 5 system types only (does NOT see "School Fees Fund")
+
+### **Key Files**
+
+- `services/users/project/api/models.py` - `SavingType` and `GroupSavingTypeSettings` models
+- `services/users/project/api/saving_types.py` - CRUD endpoints for saving types
+- `services/users/seed_comprehensive_data.py` - Auto-creates tables and system types
+- `client/src/components/ManageSavingTypes.js` - Dialog for managing types
+- `client/src/components/MeetingWorkspace.js` - Uses types in Savings tab
 
 ---
 
