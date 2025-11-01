@@ -26,6 +26,111 @@ app = create_app()
 # Random seed for reproducibility
 random.seed(42)
 
+def ensure_schema_complete():
+    """
+    Ensure all required tables and columns exist before seeding.
+    This prevents errors when the database schema is incomplete.
+    """
+    print("\n🔧 Ensuring database schema is complete...")
+
+    with app.app_context():
+        # Create all tables if they don't exist
+        db.create_all()
+        print("   ✅ All tables created/verified")
+
+        # Add missing columns using raw SQL (safe with IF NOT EXISTS)
+        from sqlalchemy import text
+
+        missing_columns = [
+            # group_members table
+            ("group_members", "target_amount", "NUMERIC(15, 2) DEFAULT 0"),
+
+            # transaction tables - notes column
+            ("saving_transactions", "notes", "TEXT"),
+            ("member_fines", "notes", "TEXT"),
+            ("loan_repayments", "notes", "TEXT"),
+            ("training_records", "notes", "TEXT"),
+            ("voting_records", "notes", "TEXT"),
+            ("group_loans", "notes", "TEXT"),
+
+            # group_documents table - professional file management columns
+            ("group_documents", "is_compressed", "BOOLEAN DEFAULT FALSE"),
+            ("group_documents", "compressed_size", "INTEGER"),
+            ("group_documents", "compression_ratio", "NUMERIC(5, 2)"),
+            ("group_documents", "file_hash", "VARCHAR(64)"),
+            ("group_documents", "thumbnail_path", "VARCHAR(500)"),
+            ("group_documents", "preview_path", "VARCHAR(500)"),
+            ("group_documents", "has_preview", "BOOLEAN DEFAULT FALSE"),
+            ("group_documents", "parent_document_id", "INTEGER"),
+            ("group_documents", "replaced_by_id", "INTEGER"),
+            ("group_documents", "version_number", "INTEGER DEFAULT 1"),
+            ("group_documents", "file_category", "VARCHAR(50)"),
+            ("group_documents", "original_filename", "VARCHAR(255)"),
+            ("group_documents", "download_count", "INTEGER DEFAULT 0"),
+            ("group_documents", "last_accessed", "TIMESTAMP"),
+            ("group_documents", "is_deleted", "BOOLEAN DEFAULT FALSE"),
+            ("group_documents", "deleted_date", "TIMESTAMP"),
+            ("group_documents", "deleted_by", "INTEGER"),
+            ("group_documents", "version", "VARCHAR(20)"),
+            ("group_documents", "is_current_version", "BOOLEAN DEFAULT TRUE"),
+            ("group_documents", "access_level", "VARCHAR(50) DEFAULT 'GROUP'"),
+        ]
+
+        for table_name, column_name, column_def in missing_columns:
+            try:
+                sql = f"ALTER TABLE {table_name} ADD COLUMN IF NOT EXISTS {column_name} {column_def};"
+                db.session.execute(text(sql))
+                db.session.commit()
+            except Exception as e:
+                # Table might not exist yet, or column already exists - that's OK
+                db.session.rollback()
+                pass
+
+        print("   ✅ All required columns added/verified")
+
+        # Create member_profile_complete view if it doesn't exist
+        try:
+            view_sql = """
+            CREATE OR REPLACE VIEW member_profile_complete AS
+            SELECT
+                gm.id,
+                gm.group_id,
+                gm.user_id,
+                gm.first_name,
+                gm.last_name,
+                gm.email,
+                gm.phone_number,
+                gm.id_number,
+                gm.date_of_birth,
+                gm.gender,
+                gm.occupation,
+                gm.status,
+                gm.joined_date,
+                gm.is_active,
+                gm.role,
+                gm.share_balance,
+                gm.total_contributions,
+                gm.attendance_percentage,
+                gm.is_eligible_for_loans,
+                gm.target_amount,
+                gm.profile_photo_url,
+                gm.created_date,
+                gm.updated_date,
+                sg.name as group_name,
+                sg.district as group_district,
+                sg.parish as group_parish,
+                sg.village as group_village,
+                sg.formation_date as group_formation_date
+            FROM group_members gm
+            LEFT JOIN savings_groups sg ON gm.group_id = sg.id;
+            """
+            db.session.execute(text(view_sql))
+            db.session.commit()
+            print("   ✅ Database views created/verified")
+        except Exception as e:
+            db.session.rollback()
+            print(f"   ⚠️  View creation skipped: {str(e)[:100]}")
+
 def clear_all_data():
     """Clear all existing data except admin user"""
     print("\n🗑️  Clearing existing data...")
@@ -649,6 +754,7 @@ def main():
     print("🌱 COMPREHENSIVE DATA SEEDING")
     print("="*70)
 
+    ensure_schema_complete()
     clear_all_data()
     create_saving_types()
     groups, all_members = create_groups_and_members()
